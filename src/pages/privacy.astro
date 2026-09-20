@@ -11,8 +11,9 @@ import { SITE, LEGAL } from '@/consts';
 >
   <h2 id="who-we-are">Who we are</h2>
   <p>
-    {SITE.name} ("we", "us") is operated by <strong>{LEGAL.entityName}</strong>, an individual
-    publisher based in {LEGAL.address}.
+    {SITE.name} ("we", "us") is an independent educational site written and operated by one
+    person, <strong>{LEGAL.entityName}</strong>, based in {LEGAL.location}. It is not a company,
+    and there is no organisation behind it.
   </p>
   <p>
     We are located outside the European Economic Area. Where this site is accessible to visitors
@@ -173,5 +174,8 @@ import { SITE, LEGAL } from '@/consts';
     Everything else: <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or the
     <a href="/contact">contact form</a>.
   </p>
-  <p>{LEGAL.entityName} — {LEGAL.address}.</p>
+  <p>
+    {LEGAL.entityName} — {LEGAL.location}. As an independent individual publisher there is no
+    business address to publish; email reaches us directly and we answer every message.
+  </p>
 </LegalLayout>

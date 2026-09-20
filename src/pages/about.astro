@@ -4,7 +4,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import SectionHeading from '@/components/SectionHeading.astro';
 import CTAButton from '@/components/CTAButton.astro';
 import { breadcrumbSchema } from '@/lib/schema';
-import { SITE } from '@/consts';
+import { SITE, LEGAL } from '@/consts';
 
 const title = 'About DevToolSDK';
 const description =
@@ -107,6 +107,25 @@ const rules = [
           <p class="mt-2 text-sm leading-relaxed text-ink-muted">{item.label}</p>
         </div>
       ))}
+    </section>
+
+    <section class="mt-16 max-w-3xl">
+      <div class="card-surface p-6 sm:p-8">
+        <h2 class="text-lg font-bold text-ink">Who is behind this</h2>
+        <p class="mt-3 text-sm leading-relaxed text-ink-muted">
+          {SITE.name} is written and run by <strong class="text-ink">{LEGAL.entityName}</strong>,
+          a developer based in {LEGAL.location}. There is no company, no team and no investor —
+          it is one person writing up tools while learning and using them, because the guide each
+          one deserved did not exist.
+        </p>
+        <p class="mt-3 text-sm leading-relaxed text-ink-muted">
+          That is worth stating plainly, because it explains both what this site is good at and
+          what it is not. Every guide here reflects real use on real projects. None of it is
+          vendor-reviewed, and none of it comes with a support contract. If something is wrong,
+          <a href="/contact" class="text-accent underline underline-offset-2">tell me</a> and it
+          gets fixed.
+        </p>
+      </div>
     </section>
 
     <section id="how-we-write" class="mt-20 scroll-mt-24">
