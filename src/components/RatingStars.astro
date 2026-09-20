@@ -1,0 +1,34 @@
+---
+interface Props {
+  rating: number;
+  max?: number;
+  size?: 'sm' | 'md' | 'lg';
+  showValue?: boolean;
+  class?: string;
+}
+
+const { rating, max = 5, size = 'md', showValue = true, class: className = '' } = Astro.props;
+
+const clamped = Math.min(Math.max(rating, 0), max);
+const percent = (clamped / max) * 100;
+
+const sizes = { sm: 'text-sm', md: 'text-base', lg: 'text-xl' } as const;
+const labelSizes = { sm: 'text-xs', md: 'text-sm', lg: 'text-base' } as const;
+const stars = '★'.repeat(max);
+---
+
+<span
+  class={`inline-flex items-center gap-2 ${className}`}
+  role="img"
+  aria-label={`Rated ${clamped.toFixed(1)} out of ${max}`}
+>
+  <span class={`relative inline-block leading-none ${sizes[size]}`} aria-hidden="true">
+    <span class="text-border-strong">{stars}</span>
+    <span
+      class="absolute inset-0 overflow-hidden whitespace-nowrap text-amber-400"
+      style={`width: ${percent}%`}>{stars}</span>
+  </span>
+  {showValue && (
+    <span class={`font-semibold text-ink ${labelSizes[size]}`}>{clamped.toFixed(1)}</span>
+  )}
+</span>

@@ -1,0 +1,127 @@
+---
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import TableOfContents from '@/components/TableOfContents.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import Newsletter from '@/components/Newsletter.astro';
+import Badge from '@/components/Badge.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import { formatDate, readingTime } from '@/lib/format';
+import { articleSchema, breadcrumbSchema } from '@/lib/schema';
+import type { Article } from '@/lib/content';
+
+interface Props {
+  article: Article;
+  headings: MarkdownHeading[];
+  related: Article[];
+}
+
+const { article, headings, related } = Astro.props;
+const { title, description, category, tags, pubDate, updatedDate, author } = article.data;
+const path = `/articles/${article.id}`;
+const minutes = readingTime(article.body);
+
+const crumbs = [
+  { href: '/', label: 'Home' },
+  { href: '/articles', label: 'Articles' },
+  { label: title },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  type="article"
+  publishedDate={pubDate}
+  modifiedDate={updatedDate}
+  author={author}
+  keywords={tags}
+  schema={[
+    articleSchema({
+      title,
+      description,
+      path,
+      author,
+      pubDate,
+      updatedDate,
+      section: category,
+      keywords: tags,
+    }),
+    breadcrumbSchema(crumbs),
+  ]}
+>
+  <div class="container-page py-10 lg:py-14">
+    <Breadcrumbs items={crumbs} />
+
+    <div class="mt-8 grid gap-12 lg:grid-cols-[minmax(0,1fr)_16rem]">
+      <article class="min-w-0">
+        <header class="border-b border-border-subtle pb-8">
+          <Badge variant="brand">{category}</Badge>
+          <h1
+            class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-balance text-ink sm:text-4xl"
+          >
+            {title}
+          </h1>
+          <p class="mt-4 text-lg leading-relaxed text-pretty text-ink-muted">{description}</p>
+          <div class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+            <span class="font-medium text-ink">{author}</span>
+            <span aria-hidden="true">·</span>
+            <time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+            {updatedDate && (
+              <>
+                <span aria-hidden="true">·</span>
+                <span>Updated {formatDate(updatedDate)}</span>
+              </>
+            )}
+            <span aria-hidden="true">·</span>
+            <span>{minutes} min read</span>
+          </div>
+        </header>
+
+        <AdSlot slot="displayHorizontal" format="horizontal" class="!mt-8 !mb-0" />
+
+        <div
+          class="prose prose-pagetools mt-10 max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:font-medium prose-a:underline-offset-2 prose-img:rounded-xl"
+        >
+          <slot />
+        </div>
+
+        <AdSlot slot="inArticle" format="fluid" layout="in-article" />
+
+        {tags.length > 0 && (
+          <ul class="mt-10 flex flex-wrap gap-2 border-t border-border-subtle pt-6">
+            {tags.map((tag) => (
+              <li>
+                <Badge variant="neutral">#{tag}</Badge>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <section class="card-surface mt-12 p-6 sm:p-8">
+          <h2 class="text-lg font-bold text-ink">Get the next comparison in your inbox</h2>
+          <p class="mt-1.5 text-sm text-ink-muted">
+            No vendor press releases. Just what we learned running these tools in production.
+          </p>
+          <div class="mt-5"><Newsletter /></div>
+        </section>
+      </article>
+
+      <aside class="min-w-0">
+        <TableOfContents headings={headings} />
+      </aside>
+    </div>
+
+    {related.length > 0 && (
+      <section class="mt-20 border-t border-border-subtle pt-12">
+        <h2 class="text-2xl font-extrabold tracking-tight text-ink">Keep reading</h2>
+        <div class="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {related.map((item) => (
+            <ArticleCard article={item} />
+          ))}
+        </div>
+      </section>
+    )}
+  </div>
+</BaseLayout>

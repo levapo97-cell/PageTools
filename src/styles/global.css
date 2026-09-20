@@ -1,0 +1,210 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Dark mode is driven by a class on <html>, set by the theme toggle. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ---------------------------------------------------------------------------
+   Raw palette. Semantic tokens below point at these and are re-pointed in dark
+   mode, so every utility (bg-surface, text-ink, …) flips with the theme.
+   --------------------------------------------------------------------------- */
+:root {
+  color-scheme: light;
+
+  --surface: #ffffff;
+  --surface-muted: #f5f7fa;
+  --surface-raised: #ffffff;
+  --surface-inverse: #0b1220;
+  --border-subtle: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --ink: #0f172a;
+  --ink-muted: #526478;
+  --accent: #0066cc;
+  --accent-hover: #004499;
+  --accent-soft: #e8f1fc;
+  --ring: #0066cc;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --surface: #070b14;
+  --surface-muted: #0d1523;
+  --surface-raised: #111a2b;
+  --surface-inverse: #f5f7fa;
+  --border-subtle: #1e293b;
+  --border-strong: #334155;
+  --ink: #e8edf6;
+  --ink-muted: #94a3b8;
+  --accent: #4d9fff;
+  --accent-hover: #80baff;
+  --accent-soft: #0f1e33;
+  --ring: #4d9fff;
+}
+
+@theme {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue',
+    Arial, sans-serif;
+  --font-mono:
+    ui-monospace, 'SFMono-Regular', 'JetBrains Mono', 'Fira Code', Menlo, Consolas, monospace;
+
+  /* Professional blue scale, anchored on the brand #0066CC / #004499. */
+  --color-brand-50: #eef6ff;
+  --color-brand-100: #d9ebff;
+  --color-brand-200: #bcdcff;
+  --color-brand-300: #8ec6ff;
+  --color-brand-400: #4d9fff;
+  --color-brand-500: #1a80ff;
+  --color-brand-600: #0066cc;
+  --color-brand-700: #0055aa;
+  --color-brand-800: #004499;
+  --color-brand-900: #003371;
+  --color-brand-950: #00224d;
+
+  /* Semantic tokens — these are what components actually use. */
+  --color-surface: var(--surface);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+
+  --radius-card: 0.875rem;
+  --shadow-card: 0 1px 2px rgb(15 23 42 / 0.04), 0 8px 24px -12px rgb(15 23 42 / 0.12);
+  --shadow-card-hover: 0 2px 4px rgb(15 23 42 / 0.06), 0 16px 40px -16px rgb(15 23 42 / 0.22);
+
+  --container-content: 46rem;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html {
+      scroll-behavior: auto;
+    }
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+    border-radius: 0.25rem;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-600);
+    color: #fff;
+  }
+
+  /* Anchored headings sit below the sticky navbar. */
+  :is(h2, h3, h4)[id] {
+    scroll-margin-top: 6rem;
+  }
+}
+
+@layer components {
+  .container-page {
+    width: 100%;
+    margin-inline: auto;
+    max-width: 80rem;
+    padding-inline: 1rem;
+  }
+
+  @media (min-width: 640px) {
+    .container-page {
+      padding-inline: 1.5rem;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .container-page {
+      padding-inline: 2rem;
+    }
+  }
+
+  .card-surface {
+    background-color: var(--color-surface-raised);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Decorative grid used behind the hero. */
+  .hero-grid {
+    background-image:
+      linear-gradient(to right, var(--color-border-subtle) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--color-border-subtle) 1px, transparent 1px);
+    background-size: 3.5rem 3.5rem;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+}
+
+/* Article body typography, tuned for both themes. */
+.prose-pagetools {
+  --tw-prose-body: var(--ink-muted);
+  --tw-prose-headings: var(--ink);
+  --tw-prose-lead: var(--ink-muted);
+  --tw-prose-links: var(--accent);
+  --tw-prose-bold: var(--ink);
+  --tw-prose-counters: var(--ink-muted);
+  --tw-prose-bullets: var(--border-strong);
+  --tw-prose-hr: var(--border-subtle);
+  --tw-prose-quotes: var(--ink);
+  --tw-prose-quote-borders: var(--accent);
+  --tw-prose-captions: var(--ink-muted);
+  --tw-prose-code: var(--ink);
+  --tw-prose-th-borders: var(--border-strong);
+  --tw-prose-td-borders: var(--border-subtle);
+}
+
+.prose-pagetools :where(pre) {
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+}
+
+.prose-pagetools :where(table) {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 640px) {
+  .prose-pagetools :where(table) {
+    display: table;
+    white-space: normal;
+  }
+}
+
+/* Shiki dual-theme: swap the dark variables in when .dark is active. */
+.dark .astro-code,
+.dark .astro-code span {
+  color: var(--shiki-dark) !important;
+  background-color: var(--shiki-dark-bg) !important;
+  font-style: var(--shiki-dark-font-style) !important;
+  font-weight: var(--shiki-dark-font-weight) !important;
+  text-decoration: var(--shiki-dark-text-decoration) !important;
+}

@@ -1,0 +1,48 @@
+---
+import { ADS } from '@/consts';
+
+interface Props {
+  /** Which AdSense unit to render. Ids live in src/consts.ts. */
+  slot?: keyof typeof ADS.slots;
+  format?: 'auto' | 'fluid' | 'rectangle' | 'horizontal';
+  layout?: 'in-article' | 'in-feed';
+  label?: boolean;
+  class?: string;
+}
+
+const {
+  slot = 'displayHorizontal',
+  format = 'auto',
+  layout,
+  label = true,
+  class: className = '',
+} = Astro.props;
+
+/**
+ * Renders nothing when ads are disabled or unconfigured — no empty reserved box,
+ * no layout shift, no placeholder for readers on preview deployments.
+ */
+const show = ADS.enabled;
+const slotId = ADS.slots[slot];
+---
+
+{show && (
+  <aside class={`my-10 ${className}`} aria-label="Advertisement">
+    {label && (
+      <p class="mb-2 text-center text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-ink-muted/70">
+        Advertisement
+      </p>
+    )}
+    <ins
+      class="adsbygoogle block"
+      style="display:block"
+      data-ad-client={ADS.client}
+      data-ad-slot={slotId}
+      data-ad-format={format}
+      data-ad-layout={layout}
+      data-full-width-responsive="true"></ins>
+    <script is:inline>
+      (window.adsbygoogle = window.adsbygoogle || []).push({});
+    </script>
+  </aside>
+)}

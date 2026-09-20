@@ -1,0 +1,113 @@
+---
+import LegalLayout from '@/layouts/LegalLayout.astro';
+import { SITE, LEGAL } from '@/consts';
+---
+
+<LegalLayout
+  title="Terms of use"
+  description="The terms governing your use of PageTools: what you may do with our content, what our reviews are and are not, and the limits of our liability."
+  path="/terms"
+  lead="Short, readable, and written to be understood rather than to be impossible to argue with."
+>
+  <h2 id="acceptance">1. Acceptance</h2>
+  <p>
+    By using {SITE.name} you agree to these terms. If you do not agree with them, please do not
+    use the site. These terms are governed by the laws of {LEGAL.jurisdiction}.
+  </p>
+
+  <h2 id="what-this-is">2. What this site is</h2>
+  <p>
+    {SITE.name} publishes editorial opinion about software tools, based on hands-on testing
+    described in our <a href="/about#methodology">methodology</a>. Our reviews are journalism,
+    not professional advice.
+  </p>
+  <p>
+    Specifically, nothing on this site constitutes legal, financial, security or procurement
+    advice. A score is our considered opinion at the time of publication, formed on our test
+    workload, which may differ from yours in ways that change the answer. Evaluate tools against
+    your own requirements before committing to them.
+  </p>
+
+  <h2 id="accuracy">3. Accuracy and currency</h2>
+  <p>
+    Software changes. Pricing changes faster. We revisit reviews when something material changes
+    and mark them with an updated date, but we cannot guarantee that every figure on every page is
+    current at the moment you read it. Always verify pricing and feature claims with the vendor
+    before making a purchasing decision.
+  </p>
+  <p>
+    If you find an error, <a href="/contact">tell us</a> — corrections get priority over
+    everything else in our queue.
+  </p>
+
+  <h2 id="your-use">4. Your use of our content</h2>
+  <p>You may:</p>
+  <ul>
+    <li>Read, print and share our articles for personal or internal business use</li>
+    <li>Quote brief excerpts with clear attribution and a link to the original page</li>
+    <li>Link to any page on this site, from anywhere, without asking</li>
+  </ul>
+  <p>You may not:</p>
+  <ul>
+    <li>Republish articles in whole or in substantial part without written permission</li>
+    <li>Present our content as your own, or strip attribution from it</li>
+    <li>Scrape the site at a volume that degrades it for other readers</li>
+    <li>Use our content to train a model that reproduces it, without permission</li>
+  </ul>
+  <p>
+    All editorial content is © {LEGAL.entityName}. The source code of this website is available
+    under the MIT license. Trademarks and product names belong to their respective owners, and
+    their use here is nominative — it does not imply any affiliation or endorsement.
+  </p>
+
+  <h2 id="submissions">5. What you send us</h2>
+  <p>
+    If you send us a comparison suggestion, a correction or any other feedback, you grant us a
+    non-exclusive right to act on it, including publishing a correction that references it. We
+    will not publish your name or contact details without asking you first.
+  </p>
+
+  <h2 id="third-party">6. Third-party links and advertising</h2>
+  <p>
+    This site links to third-party websites and displays advertising served by Google. We do not
+    control either, and we are not responsible for their content, their products or their privacy
+    practices. A link is not an endorsement, and an advertisement is definitively not one — see
+    our <a href="/disclosure">advertising and affiliate disclosure</a>.
+  </p>
+
+  <h2 id="availability">7. Availability</h2>
+  <p>
+    We make no guarantee that the site will be available, uninterrupted or error-free. We may
+    change, suspend or discontinue any part of it at any time without notice.
+  </p>
+
+  <h2 id="liability">8. Limitation of liability</h2>
+  <p>
+    The site and its content are provided "as is", without warranties of any kind, express or
+    implied. To the fullest extent permitted by law, {LEGAL.entityName} is not liable for any
+    indirect, incidental, consequential or punitive damages arising from your use of the site or
+    from decisions made in reliance on its content.
+  </p>
+  <p>
+    Nothing in these terms limits liability that cannot be limited under applicable law, including
+    liability for fraud or for death or personal injury caused by negligence.
+  </p>
+
+  <h2 id="privacy">9. Privacy</h2>
+  <p>
+    Your use of the site is also governed by our <a href="/privacy">privacy policy</a>, which
+    explains what we collect and how advertising cookies work.
+  </p>
+
+  <h2 id="changes">10. Changes to these terms</h2>
+  <p>
+    We may update these terms. The effective date at the top of this page always reflects the
+    current version. Continuing to use the site after a change means you accept the updated terms.
+  </p>
+
+  <h2 id="contact">11. Contact</h2>
+  <p>
+    Questions about these terms: <a href={`mailto:${SITE.email}`}>{SITE.email}</a>.<br />
+    {LEGAL.entityName}, {LEGAL.address}, {LEGAL.jurisdiction}.
+  </p>
+</LegalLayout>

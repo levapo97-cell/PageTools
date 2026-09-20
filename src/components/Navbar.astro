@@ -1,0 +1,107 @@
+---
+import { NAV_LINKS, SITE } from '@/consts';
+import ThemeToggle from './ThemeToggle.astro';
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+const isActive = (href: string) => (href === '/' ? path === '/' : path.startsWith(href));
+---
+
+<header
+  class="sticky top-0 z-50 border-b border-border-subtle bg-surface/85 backdrop-blur-md supports-[backdrop-filter]:bg-surface/70"
+>
+  <nav class="container-page flex h-16 items-center justify-between gap-4" aria-label="Main">
+    <a href="/" class="flex shrink-0 items-center gap-2.5 font-extrabold tracking-tight">
+      <span
+        class="grid size-8 place-items-center rounded-lg bg-brand-600 text-white shadow-sm dark:bg-brand-500"
+        aria-hidden="true"
+      >
+        <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 7h16M4 12h10M4 17h7"></path>
+          <path d="m16 15 2.5 2.5L23 13"></path>
+        </svg>
+      </span>
+      <span class="text-lg text-ink">
+        Page<span class="text-accent">Tools</span>
+      </span>
+      <span class="sr-only">{SITE.tagline}</span>
+    </a>
+
+    <ul class="hidden items-center gap-1 md:flex">
+      {NAV_LINKS.map((link) => (
+        <li>
+          <a
+            href={link.href}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            class:list={[
+              'rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              isActive(link.href)
+                ? 'bg-accent-soft text-accent'
+                : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
+            ]}
+          >
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+
+    <div class="flex items-center gap-2">
+      <ThemeToggle />
+      <a
+        href="/reviews"
+        class="hidden rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-800 sm:inline-flex dark:bg-brand-500 dark:hover:bg-brand-400 dark:hover:text-brand-950"
+      >
+        Browse reviews
+      </a>
+      <button
+        type="button"
+        id="nav-toggle"
+        class="inline-flex size-9 items-center justify-center rounded-lg border border-border-subtle text-ink-muted md:hidden"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+      >
+        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M4 7h16M4 12h16M4 17h16"></path>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <div id="mobile-menu" class="hidden border-t border-border-subtle bg-surface md:hidden">
+    <ul class="container-page flex flex-col gap-1 py-3">
+      {NAV_LINKS.map((link) => (
+        <li>
+          <a
+            href={link.href}
+            aria-current={isActive(link.href) ? 'page' : undefined}
+            class:list={[
+              'block rounded-lg px-3 py-2.5 text-sm font-medium',
+              isActive(link.href) ? 'bg-accent-soft text-accent' : 'text-ink-muted hover:bg-surface-muted',
+            ]}
+          >
+            {link.label}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</header>
+
+<script>
+  function setUp() {
+    const button = document.getElementById('nav-toggle');
+    const menu = document.getElementById('mobile-menu');
+    if (!button || !menu || button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
+
+    button.addEventListener('click', () => {
+      const open = menu.classList.toggle('hidden') === false;
+      button.setAttribute('aria-expanded', String(open));
+      button.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
+    });
+  }
+
+  setUp();
+  document.addEventListener('astro:after-swap', setUp);
+</script>

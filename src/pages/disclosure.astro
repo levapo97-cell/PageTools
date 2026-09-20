@@ -1,0 +1,101 @@
+---
+import LegalLayout from '@/layouts/LegalLayout.astro';
+import { SITE } from '@/consts';
+---
+
+<LegalLayout
+  title="Advertising & affiliate disclosure"
+  description="How PageTools makes money, which links are affiliate links, and the specific things we refuse to do — including selling placement or changing a score."
+  path="/disclosure"
+  lead="Two revenue sources, both disclosed. Neither has ever changed a score, and this page explains the controls that make that claim checkable."
+>
+  <h2 id="summary">The short version</h2>
+  <p>
+    {SITE.name} makes money from display advertising and from affiliate links. We do not sell
+    reviews, rankings, placement in a comparison table, or the outcome of a verdict. If we ever
+    did, this page would say so, because the alternative is lying to you.
+  </p>
+
+  <h2 id="advertising">Display advertising</h2>
+  <p>
+    We serve display ads through Google AdSense. Google sells the inventory and places the ads.
+    We cannot see which advertisers bought space on a given page, and advertisers cannot see what
+    we are writing or influence it.
+  </p>
+  <p>
+    That separation is the point. An advertiser who is unhappy about a review has no lever to pull
+    — they are not our customer, Google is. Every ad slot on this site is labelled
+    "Advertisement", and we deliberately keep no ads above the fold, none on the contact page, and
+    the ad load below the level where it starts degrading page performance.
+  </p>
+
+  <h2 id="affiliate">Affiliate links</h2>
+  <p>
+    Some links to the tools we review are affiliate links. If you click one and later sign up or
+    buy, we may receive a commission at no additional cost to you.
+  </p>
+  <p>Specifically:</p>
+  <ul>
+    <li>
+      Affiliate links carry <code>rel="sponsored nofollow"</code> in the page source, so they are
+      machine-identifiable, not just disclosed in prose.
+    </li>
+    <li>
+      A minority of the tools we cover have affiliate programmes at all. Most do not, and we
+      review them identically.
+    </li>
+    <li>
+      We write the review and assign the scores <strong>before</strong> anyone checks whether a
+      programme exists. The commercial question is deliberately asked last.
+    </li>
+    <li>
+      Commission rates vary between vendors and are never taken into account when ordering a
+      comparison or writing a verdict.
+    </li>
+  </ul>
+
+  <h2 id="what-we-refuse">What we refuse to do</h2>
+  <p>
+    This list exists so you can hold us to it. We do not:
+  </p>
+  <ul>
+    <li>Publish sponsored reviews, paid reviews, or vendor-written copy under our byline</li>
+    <li>Sell placement in a comparison table or a "featured partner" slot</li>
+    <li>Change a score because a vendor asked, complained, or threatened</li>
+    <li>Give a vendor advance sight of a verdict in time to respond publicly</li>
+    <li>Accept payment for a link, or add an affiliate link to a tool we did not independently choose to cover</li>
+    <li>Remove a negative review in exchange for anything</li>
+  </ul>
+  <p>
+    Vendors get exactly one privilege: a factual-accuracy pass on the draft. They can tell us we
+    described a pricing tier incorrectly. They cannot change a conclusion.
+  </p>
+
+  <h2 id="how-scores-work">How the scores are produced</h2>
+  <p>
+    Every score on this site is a weighted average of five fixed criteria — developer experience
+    (30%), total cost of ownership (25%), operational maturity (20%), ecosystem and lock-in (15%)
+    and trajectory (10%). The weights do not change between reviews, which is what makes two
+    PageTools scores comparable to each other.
+  </p>
+  <p>
+    The full process, including how long we run a tool before scoring it, is on our
+    <a href="/about#methodology">methodology page</a>.
+  </p>
+
+  <h2 id="ftc">Regulatory note</h2>
+  <p>
+    This disclosure is made in accordance with the United States Federal Trade Commission's
+    16 CFR Part 255 guidance on endorsements and testimonials, and with equivalent advertising
+    standards in the EU and UK requiring commercial relationships to be disclosed clearly and
+    conspicuously.
+  </p>
+
+  <h2 id="report">If you think we broke this</h2>
+  <p>
+    Tell us. Email <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or use the
+    <a href="/contact">contact form</a> and select "Report a factual error". If you are right, we
+    publish the correction and say what happened. A disclosure policy nobody can challenge is
+    decoration.
+  </p>
+</LegalLayout>

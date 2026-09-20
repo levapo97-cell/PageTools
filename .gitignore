@@ -1,3 +1,27 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+.astro/
+.output/
+
+# environment
+.env
+.env.production
+.env.local
+.env.*.local
+
+# Vercel
+.vercel/
+
+# logs & editor noise
+*.log
+npm-debug.log*
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
 # graphify — knowledge graph artifacts (regenerables)
 graphify-out/
 .graphify_python
