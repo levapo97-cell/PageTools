@@ -135,8 +135,9 @@ Everything on this list except the last three items is already built and committ
 | Working navigation, no dead ends, custom 404 | ✅ |
 | Favicon, OG image, web manifest | ✅ |
 | Mobile-responsive | ✅ |
-| **Real entity details in `LEGAL` (`src/consts.ts`)** | ⬜ you |
+| Real publisher identity in `LEGAL` (`src/consts.ts`) | ✅ individual publisher, email contact |
 | **Custom domain live with content** | ⬜ you |
+| **`hello@` and `privacy@` mailboxes receiving mail** | ⬜ you |
 | **GDPR/CCPA consent message** (AdSense → Privacy & messaging) | ⬜ you |
 
 ### `ads.txt`

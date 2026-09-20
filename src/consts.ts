@@ -31,13 +31,18 @@ export const NAV_LINKS = [
 ] as const;
 
 /**
- * Legal identity used across the policy pages. The site is operated by an
- * individual publisher, so the data controller is a natural person.
+ * Legal identity used across the policy pages.
+ *
+ * This is an independent educational site run by one person, not a company.
+ * The controller is therefore a natural person, and the contact channel is
+ * email rather than a postal address — GDPR Art. 13 asks for identity and
+ * contact details, not business premises.
  */
 export const LEGAL = {
   entityName: 'Ronny Vasquez',
   jurisdiction: 'Honduras',
-  address: 'San Pedro Sula, Cortés, Honduras',
+  /** City and country only — there is no business address to publish. */
+  location: 'San Pedro Sula, Honduras',
   effectiveDate: '2026-09-20',
   privacyEmail: 'privacy@devtoolsdk.com',
 } as const;
