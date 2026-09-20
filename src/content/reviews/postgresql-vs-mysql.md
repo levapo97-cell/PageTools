@@ -5,7 +5,7 @@ description: >-
   We benchmarked identical schemas and workloads, then looked at the features that actually
   change how you write application code.
 pubDate: 2026-06-04
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Databases
 tags: [postgresql, mysql, databases, sql, backend]
 rating: 4.6

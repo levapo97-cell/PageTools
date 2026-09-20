@@ -5,7 +5,7 @@ description: >-
   and still better at several things. We looked at what the remaining case actually is, and who
   it applies to.
 pubDate: 2026-05-21
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Version Control
 tags: [git, mercurial, version-control, dvcs, developer-tools]
 rating: 4.0

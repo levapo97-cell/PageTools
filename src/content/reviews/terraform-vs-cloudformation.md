@@ -6,7 +6,7 @@ description: >-
   saved us time, and where it cost us a weekend.
 pubDate: 2026-09-15
 updatedDate: 2026-09-18
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Infrastructure as Code
 tags: [terraform, cloudformation, aws, iac, devops]
 rating: 4.4

@@ -5,7 +5,7 @@ description: >-
   storefront on both and measured Core Web Vitals, deploy portability and how each one behaves
   when JavaScript fails to load.
 pubDate: 2026-06-18
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Web Frameworks
 tags: [nextjs, remix, react-router, react, ssr]
 rating: 4.3

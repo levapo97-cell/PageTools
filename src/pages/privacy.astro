@@ -5,15 +5,21 @@ import { SITE, LEGAL } from '@/consts';
 
 <LegalLayout
   title="Privacy policy"
-  description="What data PageTools collects, how advertising cookies work, which third parties are involved, and how to exercise your rights under GDPR and CCPA."
+  description="What data DevToolSDK collects, how advertising cookies work, which third parties are involved, and how to exercise your rights under GDPR and CCPA."
   path="/privacy"
   lead="We collect as little as we can get away with. This page explains exactly what that means, including the parts we do not control."
 >
   <h2 id="who-we-are">Who we are</h2>
   <p>
-    {SITE.name} ("we", "us") operates this website. For the purposes of the General Data
-    Protection Regulation (GDPR), the data controller is <strong>{LEGAL.entityName}</strong>,
-    established in {LEGAL.jurisdiction}.
+    {SITE.name} ("we", "us") is operated by <strong>{LEGAL.entityName}</strong>, an individual
+    publisher based in {LEGAL.address}.
+  </p>
+  <p>
+    We are located outside the European Economic Area. Where this site is accessible to visitors
+    in the EEA or the United Kingdom and personal data is processed through advertising, the
+    General Data Protection Regulation applies extraterritorially and
+    <strong>{LEGAL.entityName}</strong> acts as the data controller for that processing. The
+    rights described below are honoured for every visitor, wherever they are.
   </p>
   <p>
     Questions about this policy, or requests about your data, go to
@@ -94,7 +100,7 @@ import { SITE, LEGAL } from '@/consts';
   <h3>Cookies we set ourselves</h3>
   <p>
     Exactly one, and it is not a cookie. Your light/dark theme preference is stored in your
-    browser's <code>localStorage</code> under the key <code>pagetools-theme</code>. It never
+    browser's <code>localStorage</code> under the key <code>devtoolsdk-theme</code>. It never
     leaves your device, is never transmitted to us, and exists only so the site does not flash
     white at you on every page load. Clearing your browser storage removes it.
   </p>
@@ -167,5 +173,5 @@ import { SITE, LEGAL } from '@/consts';
     Everything else: <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or the
     <a href="/contact">contact form</a>.
   </p>
-  <p>{LEGAL.entityName}, {LEGAL.address}, {LEGAL.jurisdiction}.</p>
+  <p>{LEGAL.entityName} — {LEGAL.address}.</p>
 </LegalLayout>

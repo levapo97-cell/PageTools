@@ -1,11 +1,11 @@
 ---
-title: 'How we test SaaS tools: the PageTools methodology, in full'
+title: 'How we test SaaS tools: the DevToolSDK methodology, in full'
 description: >-
   Every score on this site comes from the same five-criterion rubric applied over at least four
   weeks of real use. Here is the rubric, the weights, the process, and the things we deliberately
   refuse to do.
 pubDate: 2026-09-10
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Methodology
 tags: [methodology, reviews, transparency]
 featured: true
@@ -20,7 +20,7 @@ We do it differently, and because we want you to be able to check our work, here
 ## The rubric
 
 Every tool gets scored on five criteria with fixed weights. The weights do not change between
-reviews, which is what makes two PageTools scores comparable.
+reviews, which is what makes two DevToolSDK scores comparable.
 
 **Developer experience — 30%.** Time from zero to a working deployment. Quality of the error
 messages when you get it wrong. How far the happy path carries you before you need the docs, and

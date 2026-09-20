@@ -5,7 +5,7 @@ description: >-
   latency from five regions, build times and the bill — including the parts of the bill that
   do not appear until month two.
 pubDate: 2026-08-28
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Hosting & Deployment
 tags: [vercel, netlify, hosting, jamstack, edge]
 rating: 4.5

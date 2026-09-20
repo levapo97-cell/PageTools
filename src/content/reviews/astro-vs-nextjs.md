@@ -6,7 +6,7 @@ description: >-
   browser.
 pubDate: 2026-05-07
 updatedDate: 2026-09-12
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Web Frameworks
 tags: [astro, nextjs, static-site, performance, islands]
 rating: 4.5

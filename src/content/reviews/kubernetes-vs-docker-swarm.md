@@ -5,7 +5,7 @@ description: >-
   workload on both for a quarter and measured what the complexity actually buys you — and what
   it costs in engineer-hours.
 pubDate: 2026-07-30
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Orchestration
 tags: [kubernetes, docker-swarm, orchestration, containers, devops]
 rating: 4.1

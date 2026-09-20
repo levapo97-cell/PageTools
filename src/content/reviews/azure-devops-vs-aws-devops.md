@@ -5,7 +5,7 @@ description: >-
   delivery pipeline on both and found the difference is less about features than about how much
   assembly you want to do.
 pubDate: 2026-07-16
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Cloud Platforms
 tags: [azure-devops, aws, ci-cd, cloud, devops]
 rating: 4.0

@@ -1,4 +1,4 @@
-# Deployment — PageTools
+# Deployment — DevToolSDK
 
 Static Astro build (`output: 'static'`) deployed to Vercel. Two paths are supported and
 they are mutually exclusive in practice: the **Vercel Git integration** (zero config) or
@@ -18,7 +18,7 @@ the **GitHub Actions workflows** in this repo (explicit, auditable). Pick one.
 
 ## Option A — Vercel Git integration (recommended for the first deploy)
 
-1. Go to <https://vercel.com/new> and import `levapo97-cell/PageTools`.
+1. Go to <https://vercel.com/new> and import `levapo97-cell/DevToolSDK`.
 2. Vercel auto-detects Astro. Confirm the settings:
    - **Framework preset:** Astro
    - **Build command:** `npm run build`
@@ -72,7 +72,7 @@ cat .vercel/project.json
 
 | Variable                | Example                    | Used by                       |
 | ----------------------- | -------------------------- | ----------------------------- |
-| `PUBLIC_SITE_URL`       | `https://pagetools.dev`    | `ci.yml` build (canonical URLs, sitemap) |
+| `PUBLIC_SITE_URL`       | `https://devtoolsdk.dev`    | `ci.yml` build (canonical URLs, sitemap) |
 | `PUBLIC_ADSENSE_CLIENT` | `ca-pub-XXXXXXXXXXXXXXXX`  | `ci.yml` build (AdSense snippet) |
 
 ---
@@ -97,14 +97,14 @@ put a secret behind that prefix.
 
 ## Custom domain
 
-1. **Vercel → Settings → Domains → Add** → `pagetools.dev` (and `www.pagetools.dev`).
+1. **Vercel → Settings → Domains → Add** → `devtoolsdk.dev` (and `www.devtoolsdk.dev`).
 2. At your registrar, point:
    - `A` record `@` → `76.76.21.21`
    - `CNAME` record `www` → `cname.vercel-dns.com`
 3. Wait for the TLS certificate (usually < 1 min).
 4. Update `PUBLIC_SITE_URL` to the final origin and redeploy — the sitemap, RSS feed and
    canonical tags are all derived from it.
-5. Submit `https://pagetools.dev/sitemap-index.xml` in Google Search Console.
+5. Submit `https://devtoolsdk.dev/sitemap-index.xml` in Google Search Console.
 
 ---
 

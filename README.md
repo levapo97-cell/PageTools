@@ -1,4 +1,4 @@
-# PageTools
+# DevToolSDK
 
 Independent, hands-on reviews and head-to-head comparisons of the SaaS and developer tools teams
 actually deploy — CI/CD, infrastructure, hosting, containers, databases and frameworks.
@@ -164,4 +164,4 @@ Full instructions, required secrets, custom domain setup and rollback in
 
 ## License
 
-Content © PageTools. Source code available under the MIT license.
+Content © DevToolSDK. Source code available under the MIT license.

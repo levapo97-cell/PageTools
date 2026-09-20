@@ -5,7 +5,7 @@ description: >-
   development team of twelve for a full sprint to find out what actually breaks, and what the
   licensing change really costs.
 pubDate: 2026-08-14
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Containers
 tags: [docker, podman, containers, rootless, devops]
 rating: 4.2

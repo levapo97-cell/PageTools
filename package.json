@@ -1,9 +1,9 @@
 {
-  "name": "pagetools",
+  "name": "devtoolsdk",
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "description": "PageTools — independent, hands-on reviews and head-to-head comparisons of developer SaaS tools.",
+  "description": "DevToolSDK — independent, hands-on reviews and head-to-head comparisons of developer SaaS tools.",
   "engines": {
     "node": ">=22.12.0"
   },

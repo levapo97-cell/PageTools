@@ -4,22 +4,22 @@
  * (see .env.example); everything else is editorial and lives here.
  */
 
-export const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? 'https://pagetools.dev').replace(
+export const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? 'https://devtoolsdk.com').replace(
   /\/$/,
   '',
 );
 
 export const SITE = {
-  name: 'PageTools',
+  name: 'DevToolSDK',
   tagline: 'SaaS tools, reviewed by people who ship with them',
   description:
     'Independent, hands-on reviews and head-to-head comparisons of the SaaS and developer tools teams actually deploy — CI/CD, infrastructure, hosting, databases and frameworks.',
   locale: 'en',
   language: 'en-US',
-  author: 'The PageTools Team',
-  email: 'hello@pagetools.dev',
+  author: 'The DevToolSDK Team',
+  email: 'hello@devtoolsdk.com',
   defaultImage: '/og-default.svg',
-  twitter: '@pagetools',
+  twitter: '',
 } as const;
 
 export const NAV_LINKS = [
@@ -31,16 +31,15 @@ export const NAV_LINKS = [
 ] as const;
 
 /**
- * Legal identity used across the policy pages.
- * TODO: replace with the real registered entity before going live — AdSense and
- * GDPR both expect a named, contactable data controller.
+ * Legal identity used across the policy pages. The site is operated by an
+ * individual publisher, so the data controller is a natural person.
  */
 export const LEGAL = {
-  entityName: 'PageTools',
-  jurisdiction: 'Spain',
-  address: 'Update with your registered postal address',
+  entityName: 'Ronny Vasquez',
+  jurisdiction: 'Honduras',
+  address: 'San Pedro Sula, Cortés, Honduras',
   effectiveDate: '2026-09-20',
-  privacyEmail: 'privacy@pagetools.dev',
+  privacyEmail: 'privacy@devtoolsdk.com',
 } as const;
 
 export const LEGAL_LINKS = [
@@ -57,7 +56,7 @@ export const FOOTER_LINKS = {
     { href: '/sitemap-index.xml', label: 'Sitemap' },
   ],
   Company: [
-    { href: '/about', label: 'About PageTools' },
+    { href: '/about', label: 'About DevToolSDK' },
     { href: '/about#methodology', label: 'Our methodology' },
     { href: '/contact', label: 'Contact' },
   ],

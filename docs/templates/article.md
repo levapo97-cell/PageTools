@@ -5,7 +5,7 @@ description: >-
   walks away with, not what the article is "about".
 pubDate: 2026-01-01
 # updatedDate: 2026-02-01
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Engineering Strategy
 tags: [keyword, keyword, keyword]
 featured: false

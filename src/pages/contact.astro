@@ -4,7 +4,7 @@ import Breadcrumbs from '@/components/Breadcrumbs.astro';
 import { breadcrumbSchema } from '@/lib/schema';
 import { SITE, FORMS } from '@/consts';
 
-const title = 'Contact PageTools';
+const title = 'Contact DevToolSDK';
 const description =
   'Suggest a tool comparison, report a factual error, or talk to us about advertising. We read every message and reply to most within two business days.';
 
@@ -175,7 +175,7 @@ const reasons = [
     form.dataset.bound = 'true';
 
     const status = form.querySelector<HTMLElement>('[data-contact-status]');
-    const mailto = 'hello@pagetools.dev';
+    const mailto = 'hello@devtoolsdk.dev';
 
     form.addEventListener('submit', async (event) => {
       if (!form.checkValidity()) {
@@ -195,7 +195,7 @@ const reasons = [
       if (!form.getAttribute('action')) {
         event.preventDefault();
         const data = new FormData(form);
-        const subject = encodeURIComponent(`[PageTools] ${String(data.get('reason') ?? 'contact')}`);
+        const subject = encodeURIComponent(`[DevToolSDK] ${String(data.get('reason') ?? 'contact')}`);
         const body = encodeURIComponent(
           `${String(data.get('message') ?? '')}\n\n— ${String(data.get('name') ?? '')} <${String(data.get('email') ?? '')}>`,
         );
