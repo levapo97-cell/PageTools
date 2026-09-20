@@ -1,0 +1,9 @@
+# graphify — knowledge graph artifacts (regenerables)
+graphify-out/
+.graphify_python
+.graphify_root
+graphify-wiki/
+raw/
+
+# macOS
+.DS_Store
