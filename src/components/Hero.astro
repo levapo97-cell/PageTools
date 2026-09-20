@@ -2,16 +2,17 @@
 import CTAButton from './CTAButton.astro';
 
 interface Props {
-  reviewCount: number;
+  guideCount: number;
+  chapterCount: number;
   articleCount: number;
 }
 
-const { reviewCount, articleCount } = Astro.props;
+const { guideCount, chapterCount, articleCount } = Astro.props;
 
 const stats = [
-  { value: `${reviewCount}`, label: 'Head-to-head comparisons' },
-  { value: `${articleCount}`, label: 'In-depth articles' },
-  { value: '0', label: 'Sponsored rankings' },
+  { value: `${guideCount}`, label: 'Tool guides' },
+  { value: `${chapterCount}`, label: 'Chapters, written in order' },
+  { value: `${articleCount}`, label: 'Deep dives' },
 ];
 ---
 
@@ -29,26 +30,26 @@ const stats = [
         class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-raised px-3.5 py-1.5 text-xs font-semibold text-ink-muted shadow-sm"
       >
         <span class="size-1.5 rounded-full bg-emerald-500" aria-hidden="true"></span>
-        Independent · No pay-to-play rankings
+        Free · No signup · No "subscribe to continue"
       </p>
 
       <h1
         class="mt-6 text-4xl font-extrabold leading-[1.1] tracking-tight text-balance text-ink sm:text-5xl lg:text-6xl"
       >
-        Pick the right stack
-        <span class="text-accent">without the guesswork</span>
+        Learn the tool properly
+        <span class="text-accent">the first time</span>
       </h1>
 
       <p class="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-pretty text-ink-muted">
-        DevToolSDK runs real projects on the SaaS and developer tools you are evaluating, then
-        publishes the side-by-side numbers: pricing, lock-in, ergonomics and the things that
-        only show up at month three.
+        Most tutorials teach you commands. These guides teach you the mental model first — what
+        problem the tool solves, and why its design makes sense — so the commands stop needing to
+        be memorised.
       </p>
 
       <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-        <CTAButton href="/reviews" size="lg" event="hero_primary">Browse all reviews</CTAButton>
-        <CTAButton href="/articles" variant="secondary" size="lg" event="hero_secondary">
-          Read the articles
+        <CTAButton href="/guides" size="lg" event="hero_primary">Browse the guides</CTAButton>
+        <CTAButton href="/guides/docker" variant="secondary" size="lg" event="hero_secondary">
+          Start with Docker
         </CTAButton>
       </div>
 

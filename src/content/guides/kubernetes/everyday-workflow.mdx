@@ -1,0 +1,222 @@
+---
+title: kubectl, day to day
+description: >-
+  The kubectl subset you will actually use, the output formats that make it useful, and how
+  Kustomize and Helm fit in once raw YAML stops scaling.
+order: 5
+pubDate: 2026-09-20
+tags: [kubernetes, kubectl, helm, kustomize]
+---
+
+import Callout from '@/components/Callout.astro';
+
+## Looking at things
+
+```bash
+kubectl get pods
+kubectl get pods -o wide              # node, IP, and more
+kubectl get pods -w                   # watch for changes
+kubectl get pods -A                   # every namespace
+kubectl get all                       # the common types in this namespace
+kubectl get pods -l app=web           # filter by label
+kubectl get pods --sort-by=.status.startTime
+```
+
+`kubectl describe` is where you go when `get` is not enough:
+
+```bash
+kubectl describe pod web-7d4b9c8f5-x2k9p
+```
+
+<Callout type="tip" title="Read the Events at the bottom">
+  `describe` ends with an Events list, and that is where the actual reason for a problem usually
+  is — image pull failures, scheduling failures, probe failures, OOM kills. Scroll to the bottom
+  first.
+</Callout>
+
+## Logs
+
+```bash
+kubectl logs web-7d4b9c8f5-x2k9p
+kubectl logs -f deployment/web            # follow, across the deployment
+kubectl logs --tail=100 --timestamps pod/web-...
+kubectl logs pod/web-... --previous       # the container before the last restart
+kubectl logs -l app=web --all-containers  # every pod with this label
+```
+
+`--previous` is the one people forget. When a pod is crash-looping, the logs you want are from
+the *previous* instance, because the current one has barely started.
+
+```bash
+stern web            # tail every matching pod, colour-coded
+```
+
+## Getting inside
+
+```bash
+kubectl exec -it deployment/web -- sh
+kubectl exec pod/web-... -- env
+kubectl debug pod/web-... -it --image=nicolaka/netshoot   # for distroless images
+```
+
+`kubectl debug` attaches an ephemeral container with debugging tools into an existing pod's
+namespaces — the answer for images with no shell.
+
+## Port forwarding
+
+```bash
+kubectl port-forward svc/web 8080:80
+kubectl port-forward pod/postgres-0 5432:5432
+```
+
+This is how you reach an internal service from your laptop without exposing it. It is the right
+tool for debugging a database, and the wrong tool for anything permanent.
+
+## Applying and deleting
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl apply -f ./manifests/            # a whole directory
+kubectl apply -k ./overlays/prod         # a Kustomize overlay
+kubectl diff -f deployment.yaml          # what would change — run this first
+kubectl delete -f deployment.yaml
+```
+
+<Callout type="warning" title="kubectl diff before kubectl apply">
+  `diff` shows exactly what the apply would change, server-side. It is Terraform's `plan` for
+  Kubernetes and far fewer people use it than should.
+</Callout>
+
+## Output formats worth knowing
+
+```bash
+kubectl get pod web-... -o yaml                       # the full object
+kubectl get pods -o json | jq '.items[].metadata.name'
+kubectl get pods -o jsonpath='{.items[*].spec.containers[*].image}'
+kubectl get pods -o custom-columns=NAME:.metadata.name,STATUS:.status.phase
+```
+
+`-o yaml` on a live object is the fastest way to learn the API: create something with `kubectl
+create`, then read what the server filled in.
+
+## Rollouts
+
+```bash
+kubectl rollout status deployment/web
+kubectl rollout history deployment/web
+kubectl rollout undo deployment/web
+kubectl rollout undo deployment/web --to-revision=3
+kubectl rollout restart deployment/web    # recreate every pod, same spec
+```
+
+`rollout restart` is the polite way to force a restart — useful after changing a ConfigMap, since
+pods do not automatically restart when one changes.
+
+## Resource usage
+
+```bash
+kubectl top nodes
+kubectl top pods
+kubectl top pods --containers
+```
+
+Requires `metrics-server`. These numbers are what you size requests and limits from.
+
+## When raw YAML stops scaling
+
+Three files per service, times three environments, is nine files that are 90% identical. Two
+tools solve it.
+
+### Kustomize — built into kubectl
+
+```
+base/
+├── kustomization.yaml
+├── deployment.yaml
+└── service.yaml
+overlays/
+├── staging/
+│   └── kustomization.yaml
+└── prod/
+    └── kustomization.yaml
+```
+
+`base/kustomization.yaml`:
+
+```yaml
+resources:
+  - deployment.yaml
+  - service.yaml
+```
+
+`overlays/prod/kustomization.yaml`:
+
+```yaml
+resources:
+  - ../../base
+
+namespace: prod
+
+replicas:
+  - name: web
+    count: 6
+
+images:
+  - name: myapp
+    newTag: 1.4.0
+```
+
+```bash
+kubectl apply -k overlays/prod
+kubectl kustomize overlays/prod    # render without applying
+```
+
+No templating language — it patches YAML with YAML. Start here.
+
+### Helm — packages and templating
+
+```bash
+helm repo add bitnami https://charts.bitnami.com/bitnami
+helm install postgres bitnami/postgresql --set auth.database=app
+helm list
+helm upgrade postgres bitnami/postgresql --set auth.database=app
+helm rollback postgres 1
+helm uninstall postgres
+```
+
+Helm's real strength is **installing other people's software**. Postgres, Prometheus,
+cert-manager, ingress controllers — all one command.
+
+<Callout type="note" title="Kustomize for yours, Helm for theirs">
+  A reasonable default: Kustomize for your own applications, where you control the YAML and do not
+  want a templating language in it; Helm for third-party components, where someone else has
+  already done the work.
+</Callout>
+
+## Contexts and namespaces
+
+```bash
+kubectx                      # switch cluster
+kubens demo                  # switch default namespace
+kubectl config current-context
+```
+
+```bash
+alias k=kubectl
+alias kgp='kubectl get pods'
+alias kgs='kubectl get svc'
+alias kl='kubectl logs -f'
+alias kd='kubectl describe'
+```
+
+## k9s
+
+```bash
+k9s
+```
+
+`:pods`, `:deploy`, `:svc` to navigate. `l` for logs, `d` to describe, `s` for a shell, `ctrl-d`
+to delete. It replaces most of the commands above and makes cluster exploration actually
+pleasant.
+
+Next: the mistakes that cause outages.

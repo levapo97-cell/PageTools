@@ -54,42 +54,48 @@ export const articleSchema = (input: ArticleInput) => ({
   ...(input.keywords?.length ? { keywords: input.keywords.join(', ') } : {}),
 });
 
-interface ReviewInput extends ArticleInput {
-  rating: number;
-  /** The product(s) under review. */
-  items: { name: string; url?: string; vendor?: string; rating: number }[];
+interface GuideInput extends ArticleInput {
+  toolName: string;
+  /** Ordered section titles, so search engines see the curriculum. */
+  steps?: { name: string; url: string }[];
 }
 
 /**
- * One Review node per tool, all nested under the article. Google requires the
- * reviewed item, the rating and an author on every Review.
+ * Guide sections are TechArticle, not Article — it is the type Google uses for
+ * developer documentation and it carries `proficiencyLevel` and `dependencies`.
  */
-export const reviewSchemas = (input: ReviewInput) =>
-  input.items.map((item, index) => ({
-    '@type': 'Review',
-    '@id': `${abs(input.path)}#review-${index + 1}`,
-    name: `${item.name} review`,
-    url: abs(input.path),
-    datePublished: input.pubDate.toISOString(),
-    author: { '@type': 'Organization', name: SITE.name },
-    publisher: { '@id': `${SITE_URL}/#organization` },
-    itemReviewed: {
-      '@type': 'SoftwareApplication',
-      name: item.name,
-      applicationCategory: 'DeveloperApplication',
-      operatingSystem: 'Web, Linux, macOS, Windows',
-      ...(item.url ? { url: item.url } : {}),
-      ...(item.vendor
-        ? { author: { '@type': 'Organization', name: item.vendor } }
-        : {}),
-    },
-    reviewRating: {
-      '@type': 'Rating',
-      ratingValue: item.rating,
-      bestRating: 5,
-      worstRating: 0,
-    },
-  }));
+export const techArticleSchema = (input: GuideInput & { difficulty?: string }) => ({
+  ...articleSchema(input),
+  '@type': 'TechArticle',
+  proficiencyLevel: input.difficulty ?? 'Beginner',
+  about: {
+    '@type': 'SoftwareApplication',
+    name: input.toolName,
+    applicationCategory: 'DeveloperApplication',
+  },
+});
+
+/** Used on the tool overview page: the curriculum as an ordered HowTo. */
+export const howToSchema = (input: {
+  title: string;
+  description: string;
+  path: string;
+  totalTime: number;
+  steps: { name: string; text: string; url: string }[];
+}) => ({
+  '@type': 'HowTo',
+  '@id': `${abs(input.path)}#howto`,
+  name: input.title,
+  description: input.description,
+  totalTime: `PT${input.totalTime}M`,
+  step: input.steps.map((step, index) => ({
+    '@type': 'HowToStep',
+    position: index + 1,
+    name: step.name,
+    text: step.text,
+    url: abs(step.url),
+  })),
+});
 
 export const breadcrumbSchema = (items: { label: string; href?: string }[]) => ({
   '@type': 'BreadcrumbList',

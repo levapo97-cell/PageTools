@@ -1,0 +1,184 @@
+---
+title: Installing and configuring Git properly
+description: >-
+  Install Git, then spend five minutes on the configuration that prevents a surprising share of
+  the problems people hit later — line endings, default branch, editor, and safe defaults for pull.
+order: 2
+pubDate: 2026-09-20
+tags: [git, installation, configuration]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+Installing Git takes a minute. Configuring it takes five, and those five minutes prevent several
+of the problems in chapter six.
+
+## Install
+
+**macOS** — Git ships with the Xcode command line tools, but it is usually old:
+
+```bash
+brew install git
+```
+
+**Linux**
+
+```bash
+sudo apt install git          # Debian / Ubuntu
+sudo dnf install git          # Fedora
+sudo pacman -S git            # Arch
+```
+
+**Windows** — install [Git for Windows](https://git-scm.com/download/win), which brings Git Bash
+with it. During setup, choose "Checkout as-is, commit Unix-style line endings" unless you have a
+specific reason not to.
+
+Verify:
+
+```bash
+git --version
+```
+
+This guide was written against **Git 2.5x**. Anything from 2.34 onward behaves identically for
+everything here.
+
+## Identity — required
+
+Every commit records who made it. Set this before your first commit, or you will be rewriting
+history to fix it.
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "you@example.com"
+```
+
+<Callout type="warning" title="Use your GitHub noreply address">
+  A commit email is public and permanent in every clone of the repository. If you do not want your
+  personal address scraped forever, use GitHub's noreply form:
+
+  ```bash
+  git config --global user.email "12345678+username@users.noreply.github.com"
+  ```
+
+  Find yours under GitHub → Settings → Emails. GitHub still links the commits to your account.
+</Callout>
+
+If you contribute under different identities — work and personal — set the identity per
+repository instead, with `git config --local`, or use conditional includes:
+
+```
+# ~/.gitconfig
+[includeIf "gitdir:~/work/"]
+  path = ~/.gitconfig-work
+```
+
+## The configuration that prevents problems
+
+```bash
+# Name the initial branch `main`, matching every hosting platform since 2020
+git config --global init.defaultBranch main
+
+# Never create a merge commit when pulling — rebase instead
+git config --global pull.rebase true
+
+# Push the current branch to its same-named upstream, and nothing else
+git config --global push.default simple
+git config --global push.autoSetupRemote true
+
+# Your editor for commit messages and interactive rebase
+git config --global core.editor "code --wait"     # or vim, nano, "subl -w"
+
+# Remember conflict resolutions and reapply them automatically
+git config --global rerere.enabled true
+
+# Sensible diff and log output
+git config --global diff.algorithm histogram
+git config --global log.date iso
+```
+
+Two of those deserve explanation.
+
+**`pull.rebase true`** — the default `git pull` creates a merge commit every time your branch and
+the remote have both moved. The result is a history full of "Merge branch 'main' of github.com..."
+noise. Rebasing replays your commits on top instead, keeping history linear.
+
+**`rerere.enabled true`** — "reuse recorded resolution". If you resolve the same conflict twice
+(which happens constantly during a long rebase), Git applies your previous resolution
+automatically. It is off by default for no good reason.
+
+## Line endings
+
+This is the source of "the entire file shows as changed" pull requests.
+
+**macOS / Linux:**
+
+```bash
+git config --global core.autocrlf input
+```
+
+**Windows:**
+
+```bash
+git config --global core.autocrlf true
+```
+
+Better still, settle it in the repository so every contributor gets the same behaviour regardless
+of their config. Create `.gitattributes`:
+
+```
+* text=auto eol=lf
+*.sh  text eol=lf
+*.bat text eol=crlf
+*.png binary
+*.jpg binary
+```
+
+<Callout type="tip">
+  `.gitattributes` beats `core.autocrlf` because it travels with the repository. If you only do
+  one of the two, do this one.
+</Callout>
+
+## Aliases worth having
+
+```bash
+git config --global alias.st status
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.last 'log -1 HEAD --stat'
+git config --global alias.unstage 'restore --staged'
+git config --global alias.lg "log --graph --pretty=format:'%C(yellow)%h%Creset %C(blue)%an%Creset %C(green)%ar%Creset %s%C(auto)%d%Creset' --abbrev-commit"
+```
+
+`git lg` in particular — a readable, graphical log — changes how much you actually look at your
+history.
+
+## Connect to GitHub with SSH
+
+HTTPS works, but it will ask for a token repeatedly. SSH is set up once.
+
+```bash
+ssh-keygen -t ed25519 -C "you@example.com"
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519
+cat ~/.ssh/id_ed25519.pub        # paste into GitHub → Settings → SSH keys
+```
+
+Verify:
+
+```bash
+ssh -T git@github.com
+```
+
+You should see `Hi username! You've successfully authenticated...`.
+
+## Check your work
+
+```bash
+git config --list --show-origin
+```
+
+This prints every setting and the file it came from, which is how you debug "why is Git doing
+that" later.
+
+Next: the commands you will use every day, each attached to the model from chapter one.

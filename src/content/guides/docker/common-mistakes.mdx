@@ -1,0 +1,182 @@
+---
+title: The six mistakes everybody makes
+description: >-
+  Every one of these has cost a real team real hours. They are not exotic — they are the default
+  behaviours of Docker meeting reasonable assumptions that happen to be wrong.
+order: 6
+pubDate: 2026-09-20
+tags: [docker, mistakes, debugging, security]
+---
+
+import Callout from '@/components/Callout.astro';
+
+These are in rough order of how often we see them. None is obscure. All of them are the result of
+Docker doing exactly what it says, to someone who assumed something reasonable but untrue.
+
+## 1. Expecting data to survive
+
+```bash
+docker run -d --name db postgres:17
+# ... work for two days ...
+docker rm -f db
+# everything is gone
+```
+
+The container's writable layer dies with the container. Not "might be cleaned up eventually" —
+it is destroyed immediately and unrecoverably.
+
+**The fix** is to know, for every container, where its state lives:
+
+```bash
+docker run -d --name db -v pgdata:/var/lib/postgresql/data postgres:17
+```
+
+**How to check** whether a running container is at risk:
+
+```bash
+docker inspect db --format '{{json .Mounts}}' | python3 -m json.tool
+```
+
+An empty array on a stateful service means the data is in the writable layer, and one careless
+`docker rm` away from gone.
+
+## 2. Invalidating the layer cache on every build
+
+```dockerfile
+COPY . .
+RUN npm ci        # ← reinstalls everything, every single build
+```
+
+`COPY . .` changes whenever any file changes, which busts the cache for everything below it.
+
+```dockerfile
+COPY package*.json ./
+RUN npm ci
+COPY . .          # ← source changes no longer touch the install
+```
+
+Same principle in every ecosystem: `requirements.txt` before the Python source, `go.mod` and
+`go.sum` before the Go source, `Gemfile` before the Ruby source. **Copy the dependency manifest,
+install, then copy the code.**
+
+## 3. Connecting to `localhost` between containers
+
+```yaml
+environment:
+  DATABASE_URL: postgres://user:pass@localhost:5432/app   # fails
+```
+
+Inside a container, `localhost` is that container. The database is not there.
+
+```yaml
+environment:
+  DATABASE_URL: postgres://user:pass@db:5432/app          # works
+```
+
+Use the service name. Docker's embedded DNS resolves it on a user-defined network.
+
+<Callout type="note" title="The exception: reaching the host">
+  If you genuinely need to reach a service running on your **host machine** from inside a
+  container, the address is `host.docker.internal` on macOS and Windows. On Linux you need to add
+  `--add-host=host.docker.internal:host-gateway` for it to resolve.
+</Callout>
+
+## 4. Baking secrets into the image
+
+```dockerfile
+ENV API_KEY=sk_live_51H...        # now in the image, permanently
+```
+
+Anyone who can pull the image can read it:
+
+```bash
+docker history --no-trunc myapp:1.0 | grep API_KEY
+```
+
+Deleting it in a later layer does not help — layers are additive, and the earlier one still
+ships.
+
+**At runtime**, pass secrets as environment variables or files:
+
+```bash
+docker run --env-file .env myapp
+```
+
+**At build time**, when you need a secret to fetch a private dependency, use a build secret mount
+— it is available during that `RUN` and never persisted:
+
+```dockerfile
+RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci
+```
+
+```bash
+docker build --secret id=npmrc,src=$HOME/.npmrc -t myapp .
+```
+
+## 5. Running everything as root
+
+The default user in a container is root. If your process is compromised, the attacker is root
+inside the container — and with a kernel bug or a careless mount, root on the host.
+
+```dockerfile
+RUN addgroup -S app && adduser -S app -G app
+USER app
+```
+
+Two lines. Do it in every image.
+
+<Callout type="warning" title="Order matters">
+  Everything after `USER app` runs as that user, including `COPY`. If a later step needs to write
+  to a directory, either `chown` it first or use `COPY --chown=app:app`. Putting `USER` too early
+  and then getting permission errors is a common follow-on mistake.
+</Callout>
+
+## 6. Shipping the build toolchain to production
+
+```dockerfile
+FROM node:22
+COPY . .
+RUN npm ci && npm run build
+CMD ["node", "dist/server.js"]
+```
+
+This image contains the full Node toolchain, every dev dependency, the compiler, the source and
+the build cache. It is large, slow to pull, and its attack surface is much bigger than it needs
+to be.
+
+Multi-stage fixes it:
+
+```dockerfile
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runtime
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
+USER node
+CMD ["node", "dist/server.js"]
+```
+
+Typical result: 1.2 GB down to around 150 MB, with the compiler and dev dependencies left behind.
+
+## The honourable mentions
+
+**`latest` is not a version.** `FROM node:latest` means your build is not reproducible — it can
+change under you between two builds an hour apart. Pin to `node:22-alpine`, or to a digest if you
+need it exact.
+
+**One process per container.** Running your app and its database in one container defeats
+independent scaling, independent restarts and independent logs. If you find yourself writing a
+supervisor script, you want two containers.
+
+**`CMD` in shell form.** `CMD node server.js` wraps the process in a shell that does not forward
+`SIGTERM`, so `docker stop` waits ten seconds then kills it — which means no graceful shutdown
+and dropped connections on every deploy. Use `CMD ["node", "server.js"]`.
+
+Next: what to do when it breaks anyway.

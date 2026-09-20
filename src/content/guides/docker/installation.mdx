@@ -1,0 +1,146 @@
+---
+title: Installing Docker and proving it works
+description: >-
+  Install Docker on macOS, Linux or Windows, then run the three commands that verify the daemon,
+  the networking and the filesystem all work — before you waste time debugging a broken install.
+order: 2
+pubDate: 2026-09-20
+tags: [docker, installation, setup]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+Docker installs differently on each platform because only Linux runs containers natively. On
+macOS and Windows, Docker Desktop quietly runs a small Linux VM and forwards your commands into
+it. Knowing that explains several things that would otherwise be confusing later — especially
+file performance and networking.
+
+## macOS
+
+Install Docker Desktop from [docker.com](https://www.docker.com/products/docker-desktop/), or
+with Homebrew:
+
+```bash
+brew install --cask docker
+```
+
+Then launch the Docker application once. It needs to start the background VM, and the CLI will
+not work until it has.
+
+<Callout type="warning" title="Docker Desktop licensing">
+  Docker Desktop is free for personal use, education, open source, and companies with fewer than
+  250 employees **and** under $10M annual revenue. Above that it requires a paid subscription.
+  Docker Engine on Linux is Apache 2.0 and free regardless of company size — only Desktop is
+  licensed.
+</Callout>
+
+## Linux
+
+Install Docker Engine directly — no VM, no Desktop, no licence. On Debian or Ubuntu:
+
+```bash
+# Remove any distro-packaged versions first
+sudo apt-get remove docker docker-engine docker.io containerd runc
+
+# Add Docker's official repository
+sudo apt-get update
+sudo apt-get install ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+  -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] \
+https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+sudo apt-get update
+sudo apt-get install docker-ce docker-ce-cli containerd.io \
+  docker-buildx-plugin docker-compose-plugin
+```
+
+Then add yourself to the `docker` group so you do not need `sudo` for every command:
+
+```bash
+sudo usermod -aG docker $USER
+newgrp docker
+```
+
+<Callout type="danger" title="The docker group is root">
+  Anyone in the `docker` group can start a container that mounts the host filesystem and edit
+  anything on it. That is **equivalent to root access**, and it surprises a lot of people during
+  their first security audit. On a shared or production machine, either keep using `sudo` or use
+  rootless mode.
+</Callout>
+
+## Windows
+
+Install Docker Desktop and enable the WSL 2 backend when prompted. Then do your actual work
+**inside the WSL 2 filesystem** (`/home/you/project`), not on the Windows drive
+(`/mnt/c/Users/...`). Crossing the filesystem boundary on every file read makes builds several
+times slower, and it is the most common reason Docker "feels slow on Windows".
+
+## Verify the install properly
+
+Most tutorials stop at `docker run hello-world`. That only proves the daemon is reachable. Run
+all four of these — each one checks something different, and each failure points somewhere
+specific.
+
+**1. The CLI can reach the daemon**
+
+```bash
+docker version
+```
+
+You should see both a `Client:` and a `Server:` block. Only a client block means the daemon is
+not running or you lack permission to talk to it.
+
+**2. It can pull and run an image**
+
+```bash
+docker run --rm hello-world
+```
+
+This checks registry access, image extraction and process startup.
+
+**3. Networking works**
+
+```bash
+docker run --rm alpine ping -c 3 1.1.1.1
+```
+
+If this hangs, your container networking is broken — usually a VPN or a corporate firewall
+interfering with Docker's bridge network. Better to find out now than halfway through chapter
+four.
+
+**4. Volumes work**
+
+```bash
+docker run --rm -v "$PWD":/work -w /work alpine ls
+```
+
+You should see the contents of your current directory. On macOS and Windows this also confirms
+that file sharing between the host and the VM is configured.
+
+<Callout type="tip" title="Check Compose too">
+  ```bash
+  docker compose version
+  ```
+  Note: `docker compose` (a subcommand, v2) not `docker-compose` (a separate binary, v1, and
+  end-of-life). If your system only has `docker-compose`, you are on an old install and some
+  syntax in this guide will not work.
+</Callout>
+
+## Which version this guide covers
+
+Everything here was run against **Docker 28.x**. Check yours:
+
+```bash
+docker version --format '{{.Server.Version}}'
+```
+
+Anything from 24.x onward will behave identically for everything in this guide. Below 23.x,
+BuildKit is not the default builder and some build output will look different.
+
+Next: the four concepts that everything else in Docker is built on.

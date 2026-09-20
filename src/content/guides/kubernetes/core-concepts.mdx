@@ -1,0 +1,228 @@
+---
+title: The objects that matter
+description: >-
+  Pod, Deployment, Service, Ingress, ConfigMap and Secret. Six objects cover almost everything —
+  learn what each one reconciles and the rest of the API becomes guessable.
+order: 3
+pubDate: 2026-09-20
+tags: [kubernetes, pods, deployments, services]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Kubernetes has dozens of object types. Six of them cover the overwhelming majority of what you
+will write. Each is a desired state that some controller reconciles.
+
+## Pod — the unit of scheduling
+
+A Pod is one or more containers that **always run together on the same node**, sharing a network
+namespace and optionally storage.
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: web
+spec:
+  containers:
+    - name: nginx
+      image: nginx:1.27-alpine
+      ports:
+        - containerPort: 80
+```
+
+Containers in a pod share `localhost` and can reach each other on it — the one place in
+Kubernetes where `localhost` between containers works.
+
+<Callout type="warning" title="You will almost never write a Pod directly">
+  A bare Pod is not restarted if its node dies. Nothing is watching it. You write a Deployment,
+  which creates Pods and keeps them alive. Bare Pods are for one-off debugging.
+</Callout>
+
+Most pods hold one container. The exception is the **sidecar** pattern — a second container
+providing something to the first, such as a log shipper or a service-mesh proxy.
+
+## Deployment — keep N copies running
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: nginx
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+```
+
+Three things are happening:
+
+- **`replicas: 3`** — the desired count the loop maintains.
+- **`template`** — the Pod spec to create copies from.
+- **`selector.matchLabels`** — how the Deployment identifies the pods it owns.
+
+That last one is the source of a lot of early confusion. Kubernetes has no hierarchy of
+ownership by name; it finds things **by label**. The selector must match the labels in the
+template, or the Deployment creates pods it does not recognise and creates more forever.
+
+Deployments also handle rolling updates. Change the image, and it creates new pods, waits for
+them to be ready, then removes old ones — gradually, so the service stays up.
+
+## Service — a stable address for a moving target
+
+Pods get new IPs whenever they are recreated. A Service gives a stable name and IP in front of
+whichever pods currently match its selector.
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web          # matches pods with this label
+  ports:
+    - port: 80
+      targetPort: 80
+```
+
+Any pod in the cluster can now reach `http://web` — or `http://web.default.svc.cluster.local` in
+full. DNS resolves it, and traffic is load-balanced across matching pods.
+
+Three types matter:
+
+- **ClusterIP** (default) — reachable only inside the cluster. Use for internal services.
+- **NodePort** — opens a high port on every node. Mostly a building block.
+- **LoadBalancer** — asks the cloud for a real load balancer. One per service, so it gets
+  expensive; this is why Ingress exists.
+
+<Callout type="note" title="Services select by label, not by Deployment">
+  A Service has no relationship with a Deployment. It selects **pods**. If the labels do not match,
+  you get a Service with no endpoints and connections that fail with no obvious error. Checking
+  `kubectl get endpoints` is the first thing to do when a Service "does not work".
+</Callout>
+
+## Ingress — HTTP routing from outside
+
+A LoadBalancer Service per application means a cloud load balancer per application. Ingress puts
+one in front of everything and routes by hostname and path.
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: app.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  number: 80
+```
+
+<Callout type="warning" title="An Ingress object does nothing on its own">
+  It is a declaration with no controller unless you install one. Until an ingress controller
+  (nginx, Traefik, or your cloud's) is running in the cluster, the Ingress is inert and nothing
+  routes. This catches everyone once.
+</Callout>
+
+## ConfigMap and Secret — configuration outside the image
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  LOG_LEVEL: "info"
+  API_URL: "https://api.example.com"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+stringData:
+  DATABASE_PASSWORD: "supersecret"
+```
+
+Consume them in a pod:
+
+```yaml
+spec:
+  containers:
+    - name: app
+      image: myapp:1.0
+      envFrom:
+        - configMapRef:
+            name: app-config
+        - secretRef:
+            name: app-secrets
+```
+
+<Callout type="danger" title="Secrets are base64, not encrypted">
+  A Kubernetes Secret is base64-encoded in etcd. Anyone who can read the Secret, or read etcd, has
+  the plaintext. They are not a secret management system. Enable encryption at rest, restrict
+  access with RBAC, and for anything serious use External Secrets Operator with a real vault.
+</Callout>
+
+## Namespaces — partitioning one cluster
+
+```bash
+kubectl create namespace staging
+kubectl get pods -n staging
+```
+
+Namespaces scope names, and they are the unit that RBAC, resource quotas and network policies
+attach to. Use them to separate environments or teams within a cluster.
+
+Cross-namespace DNS uses the longer name: a Service `db` in namespace `data` is reachable at
+`db.data.svc.cluster.local`.
+
+## How they compose
+
+```
+                    Internet
+                       │
+                   ┌───▼───┐
+                   │Ingress│  routes by host/path
+                   └───┬───┘
+                       │
+                   ┌───▼───┐
+                   │Service│  stable IP, selects by label
+                   └───┬───┘
+              ┌────────┼────────┐
+          ┌───▼──┐ ┌───▼──┐ ┌───▼──┐
+          │ Pod  │ │ Pod  │ │ Pod  │  created and maintained
+          └──────┘ └──────┘ └──────┘  by a Deployment
+                       ▲
+                 ConfigMap / Secret
+                 injected as env vars
+```
+
+<Callout type="tip" title="Labels are the glue">
+  Almost every relationship in Kubernetes is "this selects things with these labels". Deployments
+  find their pods by label. Services find their endpoints by label. Network policies match by
+  label. If something is not connecting to something else, the first thing to check is whether the
+  labels line up.
+</Callout>
+
+Next: deploying a real application with all of it.

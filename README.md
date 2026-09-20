@@ -1,9 +1,10 @@
 # DevToolSDK
 
-Independent, hands-on reviews and head-to-head comparisons of the SaaS and developer tools teams
-actually deploy — CI/CD, infrastructure, hosting, containers, databases and frameworks.
+Step-by-step guides to the developer tools teams actually deploy. Every guide follows the same
+seven chapters, starts with the problem the tool solves, and states the version it was verified
+against.
 
-Built with **Astro 7** (static output), **Tailwind CSS 4**, **TypeScript** and content
+Built with **Astro 7** (static output), **MDX**, **Tailwind CSS 4**, **TypeScript** and content
 collections. No client-side framework runtime: the only JavaScript that ships is the theme
 toggle, the mobile nav and the two forms.
 
@@ -51,7 +52,10 @@ Node 22.12 or newer is required.
     ├── lib/                  # content helpers, formatting, Schema.org builders
     ├── pages/                # routes, plus rss.xml.ts and robots.txt.ts
     ├── styles/global.css     # Tailwind theme, design tokens, light/dark palettes
+    ├── data/tools.ts         # the tool catalogue — add a tool here
     └── content/
+        ├── guides/<tool>/    # one folder per tool, one file per chapter
+        └── articles/         # blog posts
         ├── reviews/          # 11 head-to-head comparisons
         └── articles/         # blog posts
 ```
@@ -61,8 +65,9 @@ Node 22.12 or newer is required.
 | Route | Source |
 | ----- | ------ |
 | `/` | `src/pages/index.astro` — hero, featured reviews, latest, CTA |
-| `/reviews` | Listing, grouped by category |
-| `/reviews/<slug>` | Individual comparison page |
+| `/guides` | Every tool guide, grouped by category |
+| `/guides/<tool>` | Guide overview — curriculum, HowTo schema |
+| `/guides/<tool>/<chapter>` | A chapter, with sidebar, TOC and pager |
 | `/articles` | Blog listing |
 | `/articles/<slug>` | Blog post |
 | `/about` | Who we are, methodology, scoring rubric, funding |
@@ -118,10 +123,10 @@ Handled centrally so pages only supply content:
 - **Meta tags** — `src/components/Head.astro`: title, description, canonical, keywords, robots.
 - **Open Graph + Twitter cards** — including `article:published_time` / `article:modified_time`.
 - **Schema.org** — `src/lib/schema.ts` builds one `@graph` per page: `Organization` and `WebSite`
-  on every page, plus `Article`, one `Review` node per reviewed tool, `BreadcrumbList`,
+  on every page, plus `TechArticle` on chapters, `HowTo` on guide overviews, `BreadcrumbList`,
   `CollectionPage`, `AboutPage` or `ContactPage` as appropriate.
 - **Sitemap** — `@astrojs/sitemap`, excludes `/404`.
-- **RSS** — `/rss.xml`, reviews and articles merged and sorted by date.
+- **RSS** — `/rss.xml`, guide chapters and articles merged and sorted by date.
 - **robots.txt** — generated per environment; preview hosts are fully disallowed.
 
 ---
@@ -131,9 +136,10 @@ Handled centrally so pages only supply content:
 See [`docs/CONTENT.md`](docs/CONTENT.md) for the full frontmatter reference, and
 [`docs/templates/`](docs/templates) for copy-paste starting points.
 
-Short version: drop a Markdown file into `src/content/reviews/` or `src/content/articles/`. The
-filename becomes the slug. `npm run check` validates the frontmatter against the Zod schema and
-fails the build if something is missing.
+Short version: a chapter is an `.mdx` file in `src/content/guides/<tool>/`, ordered by its
+`order` field. A new tool is one entry in `src/data/tools.ts` plus a folder — no route or nav
+changes needed. `npm run check` validates every frontmatter against the Zod schema and fails the
+build if something is missing.
 
 ---
 

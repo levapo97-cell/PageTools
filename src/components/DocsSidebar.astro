@@ -1,0 +1,73 @@
+---
+import type { Guide } from '@/lib/content';
+import { pathOf } from '@/lib/content';
+import { TOOLS } from '@/data/tools';
+
+interface Props {
+  guide: Guide;
+  /** Current pathname, used to mark the active section. */
+  current: string;
+}
+
+const { guide, current } = Astro.props;
+const others = TOOLS.filter((tool) => tool.slug !== guide.tool.slug);
+---
+
+<nav aria-label="Guide sections" class="text-sm lg:sticky lg:top-24 lg:max-h-[calc(100dvh-8rem)] lg:overflow-y-auto">
+  <a
+    href={`/guides/${guide.tool.slug}`}
+    class:list={[
+      'flex items-center justify-between rounded-lg px-3 py-2 font-bold transition-colors',
+      current === `/guides/${guide.tool.slug}`
+        ? 'bg-accent-soft text-accent'
+        : 'text-ink hover:bg-surface-muted',
+    ]}
+  >
+    {guide.tool.name}
+    <span class="text-[0.65rem] font-semibold uppercase tracking-wider text-ink-muted">
+      {guide.tool.version}
+    </span>
+  </a>
+
+  <ol class="mt-1 border-l border-border-subtle pl-3 ms-3">
+    {guide.sections.map((section, index) => {
+      const href = pathOf(section);
+      const active = current === href;
+      return (
+        <li>
+          <a
+            href={href}
+            aria-current={active ? 'page' : undefined}
+            class:list={[
+              'flex gap-2.5 rounded-lg px-3 py-2 transition-colors',
+              active
+                ? 'bg-accent-soft font-semibold text-accent'
+                : 'text-ink-muted hover:bg-surface-muted hover:text-ink',
+            ]}
+          >
+            <span class="shrink-0 tabular-nums opacity-60">{index + 1}.</span>
+            <span>{section.data.title}</span>
+          </a>
+        </li>
+      );
+    })}
+  </ol>
+
+  <div class="mt-8 border-t border-border-subtle pt-5">
+    <h2 class="px-3 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-ink-muted">
+      Other guides
+    </h2>
+    <ul class="mt-2 space-y-0.5">
+      {others.map((tool) => (
+        <li>
+          <a
+            href={`/guides/${tool.slug}`}
+            class="block rounded-lg px-3 py-2 text-ink-muted transition-colors hover:bg-surface-muted hover:text-ink"
+          >
+            {tool.name}
+          </a>
+        </li>
+      ))}
+    </ul>
+  </div>
+</nav>

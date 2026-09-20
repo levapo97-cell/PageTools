@@ -1,0 +1,202 @@
+---
+title: Your first real Dockerfile, line by line
+description: >-
+  Containerise a working Node API from scratch. Every instruction is explained, and the final
+  image is one you would actually be willing to deploy.
+order: 4
+pubDate: 2026-09-20
+tags: [docker, dockerfile, tutorial]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+We are going to containerise a small API. Type it out rather than copying — the point is to
+understand each line, and the mistakes you make typing it are the ones worth making now.
+
+## The application
+
+Create a directory and three files.
+
+```bash
+mkdir docker-first && cd docker-first
+```
+
+`package.json`:
+
+```json
+{
+  "name": "docker-first",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "express": "^5.0.0" }
+}
+```
+
+`server.js`:
+
+```js
+import express from 'express';
+
+const app = express();
+const port = process.env.PORT ?? 3000;
+
+app.get('/', (req, res) => {
+  res.json({ message: 'Running in a container', hostname: process.env.HOSTNAME });
+});
+
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+app.listen(port, '0.0.0.0', () => console.log(`listening on ${port}`));
+```
+
+<Callout type="warning" title="0.0.0.0, not localhost">
+  Binding to `localhost` inside a container means the server only accepts connections from inside
+  that container — your published port will connect to nothing. Always bind to `0.0.0.0` in a
+  container. This catches almost everyone once.
+</Callout>
+
+## The naive Dockerfile
+
+Start with the version most tutorials give you, so we can see what is wrong with it.
+
+```dockerfile
+FROM node:22
+WORKDIR /app
+COPY . .
+RUN npm install
+CMD ["npm", "start"]
+```
+
+Build and run it:
+
+```bash
+docker build -t first-api:naive .
+docker run --rm -p 3000:3000 first-api:naive
+```
+
+Visit `http://localhost:3000`. It works. Now check the size:
+
+```bash
+docker images first-api:naive
+```
+
+Roughly **1.1 GB** — for an application that is a few kilobytes. And every source change
+re-installs every dependency, because `COPY . .` invalidates the cache before `npm install` runs.
+
+## The Dockerfile you would actually ship
+
+```dockerfile
+# syntax=docker/dockerfile:1
+
+# ---- build stage -----------------------------------------------------------
+FROM node:22-alpine AS build
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# ---- runtime stage ---------------------------------------------------------
+FROM node:22-alpine AS runtime
+ENV NODE_ENV=production
+WORKDIR /app
+
+RUN addgroup -S app && adduser -S app -G app
+
+COPY --from=build --chown=app:app /app/node_modules ./node_modules
+COPY --chown=app:app . .
+
+USER app
+EXPOSE 3000
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+  CMD node -e "fetch('http://localhost:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+
+CMD ["node", "server.js"]
+```
+
+Build it and compare:
+
+```bash
+docker build -t first-api:good .
+docker images first-api
+```
+
+About **180 MB**, and changing `server.js` now rebuilds in under a second.
+
+## Every line, explained
+
+**`# syntax=docker/dockerfile:1`** — opts into the current BuildKit frontend, which gives you
+better caching and features like `RUN --mount`. Cheap, always worth it.
+
+**`FROM node:22-alpine AS build`** — Alpine is ~5 MB against ~350 MB for the default Debian-based
+image. `AS build` names this stage so a later stage can copy from it.
+
+**`COPY package*.json ./` before `RUN npm ci`** — the cache trick from chapter three. Dependencies
+only reinstall when the manifest changes, not on every source edit. This one line is the
+difference between a 40-second and a 1-second rebuild.
+
+**`npm ci --omit=dev`** — `ci` installs exactly what the lockfile says and fails if it disagrees
+with `package.json`. `npm install` can silently update it. In a build, you always want `ci`.
+
+**The second `FROM`** — this is the multi-stage build, and it is where the size goes. The runtime
+stage starts fresh; only what you explicitly `COPY --from=build` comes across. Build tools,
+caches and intermediate files stay behind.
+
+**`RUN addgroup … && adduser …` plus `USER app`** — by default a container runs as root, and a
+container escape then has root on the host. Running as an unprivileged user costs two lines.
+
+<Callout type="danger" title="Do not skip USER">
+  This is the most commonly skipped line in real Dockerfiles and the one security review always
+  flags. There is no reason for a Node process to be root.
+</Callout>
+
+**`EXPOSE 3000`** — documentation only. It does not publish anything; `-p` does that. It tells
+readers and some tooling which port the image expects to serve on.
+
+**`HEALTHCHECK`** — lets Docker, Compose and orchestrators know whether the process is actually
+serving, not merely running. Compose's `depends_on: condition: service_healthy` relies on it.
+
+**`CMD ["node", "server.js"]`** — note the JSON array form. The shell form (`CMD node server.js`)
+wraps your process in `/bin/sh`, which does not forward signals, so `docker stop` waits the full
+ten seconds and then kills it. Always use the array form.
+
+## Add a .dockerignore
+
+Create `.dockerignore` next to the Dockerfile:
+
+```
+node_modules
+npm-debug.log
+.git
+.gitignore
+.env
+*.md
+dist
+coverage
+.DS_Store
+```
+
+Without it, `COPY . .` sends your entire `node_modules` and `.git` to the build daemon, then
+overwrites the carefully installed modules with your host's — which may be built for a different
+platform. This is a genuinely common and very confusing bug.
+
+<Callout type="tip">
+  `.dockerignore` is not optional. Treat it like `.gitignore`: create it before your first build,
+  not after your first confusing one.
+</Callout>
+
+## Run it properly
+
+```bash
+docker run -d --name api -p 3000:3000 first-api:good
+docker ps
+curl localhost:3000/health
+docker logs api
+docker stop api && docker rm api
+```
+
+You now have a small, cached, non-root, health-checked image. Next: the commands you will
+actually use every day.

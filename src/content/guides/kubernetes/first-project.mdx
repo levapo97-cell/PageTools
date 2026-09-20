@@ -1,0 +1,272 @@
+---
+title: Deploy a real application
+description: >-
+  Take an application from a container image to something reachable in a browser — Deployment,
+  Service, Ingress, configuration, probes and a rolling update.
+order: 4
+pubDate: 2026-09-20
+tags: [kubernetes, tutorial, deployment, ingress]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+We will deploy an application to the kind cluster from chapter two, expose it, configure it, and
+then perform a rolling update and a rollback.
+
+## Install an ingress controller
+
+Ingress objects are inert without a controller. For kind:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=120s
+```
+
+## A namespace
+
+```bash
+kubectl create namespace demo
+kubens demo          # or: kubectl config set-context --current --namespace=demo
+```
+
+## Configuration first
+
+`config.yaml`:
+
+```yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+data:
+  LOG_LEVEL: "info"
+  GREETING: "Hello from Kubernetes"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: app-secrets
+type: Opaque
+stringData:
+  API_TOKEN: "dev-token-not-a-real-secret"
+```
+
+```bash
+kubectl apply -f config.yaml
+```
+
+## The Deployment
+
+`deployment.yaml`:
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  labels:
+    app: web
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: nginxdemos/hello:0.4
+          ports:
+            - containerPort: 80
+              name: http
+
+          envFrom:
+            - configMapRef:
+                name: app-config
+            - secretRef:
+                name: app-secrets
+
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 128Mi
+
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 20
+```
+
+Four parts deserve attention.
+
+**`maxUnavailable: 0`** — during a rolling update, never drop below the desired replica count.
+Combined with `maxSurge: 1`, Kubernetes adds a new pod before removing an old one. This is what
+makes a deploy invisible to users.
+
+**Resource requests and limits.** The *request* is what the scheduler reserves when placing the
+pod. The *limit* is the hard ceiling. Without a request, the scheduler assumes zero and will
+happily overcommit a node.
+
+<Callout type="warning" title="Set a memory limit, think hard about a CPU limit">
+  Exceeding a memory limit gets the container killed (OOMKilled) — you want that bound. CPU limits
+  work differently: they *throttle* rather than kill, and an aggressive CPU limit can make latency
+  much worse than no limit at all. Common practice is to set CPU requests and memory limits, and
+  leave CPU limits off.
+</Callout>
+
+**`readinessProbe`** — "can this pod receive traffic?" Failing it removes the pod from the
+Service's endpoints without restarting it.
+
+**`livenessProbe`** — "is this pod healthy?" Failing it **restarts the container**. Point it at
+something cheap; a liveness probe that hits your database can turn a slow database into a
+restart loop across every pod at once.
+
+```bash
+kubectl apply -f deployment.yaml
+kubectl get pods -w
+```
+
+Watch them go `Pending` → `ContainerCreating` → `Running`.
+
+## Expose it
+
+`service.yaml`:
+
+```yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 80
+      targetPort: http
+      name: http
+```
+
+```bash
+kubectl apply -f service.yaml
+kubectl get endpoints web
+```
+
+You should see three IP:port pairs. **If this is empty, the selector does not match your pod
+labels** — that is the check from chapter three.
+
+Test from inside the cluster:
+
+```bash
+kubectl run tmp --rm -it --image=curlimages/curl --restart=Never -- curl -s http://web
+```
+
+## Route from outside
+
+`ingress.yaml`:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: demo.localhost
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: web
+                port:
+                  name: http
+```
+
+```bash
+kubectl apply -f ingress.yaml
+curl -H "Host: demo.localhost" http://localhost
+```
+
+The `extraPortMappings` from chapter two is what makes `localhost` work here.
+
+## Roll out a change
+
+```bash
+kubectl set image deployment/web web=nginxdemos/hello:0.3
+kubectl rollout status deployment/web
+```
+
+Watch it in another terminal:
+
+```bash
+kubectl get pods -w
+```
+
+New pods appear and become ready before old ones terminate — `maxUnavailable: 0` in action.
+
+## Roll it back
+
+```bash
+kubectl rollout history deployment/web
+kubectl rollout undo deployment/web
+kubectl rollout status deployment/web
+```
+
+<Callout type="tip" title="Prefer apply over set image">
+  `kubectl set image` changes the live object but not your YAML, so the next `apply` reverts it.
+  Change the image in the file and apply the file — the cluster and your repository stay in
+  agreement. That principle is the whole basis of GitOps.
+</Callout>
+
+## Scale
+
+```bash
+kubectl scale deployment/web --replicas=5
+kubectl get pods
+```
+
+Or let the cluster decide:
+
+```bash
+kubectl autoscale deployment/web --min=2 --max=10 --cpu-percent=70
+kubectl get hpa
+```
+
+The HorizontalPodAutoscaler needs `metrics-server` installed, and it needs the **CPU requests**
+you set earlier — the target percentage is a percentage of the request.
+
+## Clean up
+
+```bash
+kubectl delete namespace demo
+```
+
+Deleting the namespace removes everything in it.
+
+Next: the commands you will actually use.

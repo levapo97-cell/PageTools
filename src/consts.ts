@@ -11,9 +11,9 @@ export const SITE_URL = (import.meta.env.PUBLIC_SITE_URL ?? 'https://devtoolsdk.
 
 export const SITE = {
   name: 'DevToolSDK',
-  tagline: 'SaaS tools, reviewed by people who ship with them',
+  tagline: 'Learn the tools you actually deploy',
   description:
-    'Independent, hands-on reviews and head-to-head comparisons of the SaaS and developer tools teams actually deploy — CI/CD, infrastructure, hosting, databases and frameworks.',
+    'Step-by-step guides to the developer tools teams actually deploy — Docker, Git, Terraform, Kubernetes and more. Each guide starts with the problem the tool solves, not with its command line flags.',
   locale: 'en',
   language: 'en-US',
   author: 'The DevToolSDK Team',
@@ -24,7 +24,7 @@ export const SITE = {
 
 export const NAV_LINKS = [
   { href: '/', label: 'Home' },
-  { href: '/reviews', label: 'Reviews' },
+  { href: '/guides', label: 'Guides' },
   { href: '/articles', label: 'Articles' },
   { href: '/about', label: 'About' },
   { href: '/contact', label: 'Contact' },
@@ -50,14 +50,14 @@ export const LEGAL_LINKS = [
 
 export const FOOTER_LINKS = {
   Content: [
-    { href: '/reviews', label: 'All reviews' },
+    { href: '/guides', label: 'All guides' },
     { href: '/articles', label: 'All articles' },
     { href: '/rss.xml', label: 'RSS feed' },
     { href: '/sitemap-index.xml', label: 'Sitemap' },
   ],
   Company: [
     { href: '/about', label: 'About DevToolSDK' },
-    { href: '/about#methodology', label: 'Our methodology' },
+    { href: '/about#how-we-write', label: 'How we write guides' },
     { href: '/contact', label: 'Contact' },
   ],
 } as const;
@@ -83,18 +83,3 @@ export const FORMS = {
   contactEndpoint: import.meta.env.PUBLIC_CONTACT_ENDPOINT ?? '',
   newsletterEndpoint: import.meta.env.PUBLIC_NEWSLETTER_ENDPOINT ?? '',
 } as const;
-
-export const CATEGORIES = [
-  'Infrastructure as Code',
-  'CI/CD',
-  'Hosting & Deployment',
-  'Containers',
-  'Orchestration',
-  'Cloud Platforms',
-  'Frontend Frameworks',
-  'Web Frameworks',
-  'Databases',
-  'Version Control',
-] as const;
-
-export type Category = (typeof CATEGORIES)[number];

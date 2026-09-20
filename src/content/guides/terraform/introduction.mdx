@@ -1,0 +1,136 @@
+---
+title: What Terraform is for
+description: >-
+  Infrastructure as code, declarative state, and the plan step that makes Terraform worth
+  learning. Start with why clicking in a cloud console does not scale.
+order: 1
+pubDate: 2026-09-20
+tags: [terraform, iac, fundamentals]
+---
+
+import Callout from '@/components/Callout.astro';
+
+You can create a server by clicking through a cloud console. It works, it takes four minutes, and
+it is the right choice exactly once.
+
+The problem starts at the second environment.
+
+## The problem: clicking does not reproduce
+
+You built staging by hand. Now you need production to match. You click through again, carefully.
+Three weeks later something behaves differently in production and nobody can say why, because the
+only record of what was configured is the console itself — and the console shows you the current
+state, not the decisions.
+
+The failures compound:
+
+- **No record of why.** Why does this security group allow 10.0.4.0/24? Nobody remembers.
+- **No review.** Infrastructure changes bypass the process every line of application code goes
+  through.
+- **No reproducibility.** Rebuilding after a region outage means clicking for two days and
+  getting it subtly wrong.
+- **Drift.** Someone made an emergency change at 3am and did not write it down.
+
+## Declarative, not imperative
+
+The first generation of answers — shell scripts, Ansible, Chef — made the setup into code. That
+is a real improvement, but those tools describe **steps**: create this, then modify that. Run the
+same steps against a machine in a different starting state and you get a different result.
+
+Terraform is **declarative**. You describe the state you want:
+
+```hcl
+resource "aws_s3_bucket" "uploads" {
+  bucket = "myapp-uploads-prod"
+}
+```
+
+You never say "create a bucket". You say "a bucket with this name exists". Terraform compares
+that against reality and works out what to do — create it, modify it, or nothing at all.
+
+Running it twice changes nothing the second time. That property is **idempotence**, and it is
+what makes infrastructure code safe to run repeatedly.
+
+## The three-way comparison
+
+This is the concept that explains everything Terraform does. On every run, it compares three
+things:
+
+```
+     Your code              State file            Real infrastructure
+  (what you want)      (what Terraform            (what actually
+                        last created)               exists now)
+         │                    │                         │
+         └────────────────────┴─────────────────────────┘
+                              │
+                         terraform plan
+                              │
+                    "here is what I will change"
+```
+
+- **Code vs state** → what you have changed since last time
+- **State vs reality** → what changed outside Terraform (drift)
+
+Out of that comparison comes a plan: create, update, destroy, or replace.
+
+<Callout type="note" title="The state file is not a cache">
+  New users often assume the state file is an optimisation that could be regenerated. It is not.
+  It is the **mapping between your code and real resource IDs** — it is how Terraform knows that
+  `aws_s3_bucket.uploads` in your code is bucket `myapp-uploads-prod` in AWS. Lose it and
+  Terraform no longer knows it manages anything, and will try to create everything again.
+</Callout>
+
+## The plan step is the product
+
+Every infrastructure tool can create resources. What makes Terraform worth the learning curve is
+`terraform plan`:
+
+```
+Terraform will perform the following actions:
+
+  # aws_db_instance.main must be replaced
+-/+ resource "aws_db_instance" "main" {
+      ~ engine_version = "16.3" -> "17.2" # forces replacement
+      ~ id             = "db-ABC123" -> (known after apply)
+    }
+
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+Read that carefully. `must be replaced` and `forces replacement` mean Terraform will **destroy
+your database and create a new one**. That is the kind of thing you want to discover in a pull
+request, not from a monitoring alert.
+
+<Callout type="danger" title="Always read the plan">
+  The single most important habit in Terraform: read every plan before applying, and look
+  specifically for `must be replaced` and `destroy`. Teams that treat the plan as a formality are
+  the teams with an incident story about it.
+</Callout>
+
+## What Terraform is not
+
+**Not a configuration manager.** Terraform creates the server. What runs *inside* it is a
+different problem — use a container image, or Ansible, or cloud-init.
+
+**Not AWS-only.** There are providers for Azure, GCP, Cloudflare, Datadog, GitHub, Kubernetes and
+several thousand more. Anything with an API tends to have one.
+
+**Not a way to avoid learning the cloud.** Terraform is a consistent way to express cloud
+resources. You still need to know what a VPC, a subnet and a security group are. It does not
+abstract the cloud; it makes the cloud declarable.
+
+## A word on the licence
+
+HashiCorp moved Terraform to the Business Source License in 2023, which prompted the community to
+fork it as **OpenTofu**, now under the Linux Foundation.
+
+For almost everyone, BUSL changes nothing — it restricts offering a competing managed Terraform
+service, not internal use. If your legal team objects anyway, OpenTofu is a drop-in replacement
+and every single thing in this guide applies to it unchanged. Swap `terraform` for `tofu`.
+
+## What you will build
+
+A real piece of infrastructure, from one resource to a module structure that survives a second
+environment — plus the state management decisions that are painful to change after the fact.
+
+Next: installing Terraform and getting credentials working.

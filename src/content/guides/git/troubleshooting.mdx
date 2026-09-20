@@ -1,0 +1,202 @@
+---
+title: Getting out of trouble
+description: >-
+  A lookup table for "I am in a bad state and do not know how I got here", plus the three
+  commands that recover almost anything.
+order: 7
+pubDate: 2026-09-20
+tags: [git, recovery, troubleshooting]
+---
+
+import Callout from '@/components/Callout.astro';
+
+When you are stuck, the answer is usually one of three commands. Start here.
+
+## The first three things to run
+
+```bash
+git status      # what state am I in, and what does Git suggest?
+git log --oneline --graph --all -20    # what does the graph look like?
+git reflog      # where has HEAD been?
+```
+
+`git status` in particular is underrated: for almost every unusual state, it names the commands
+that get you out. Read it rather than skimming it.
+
+## "I do not know what state I am in"
+
+```bash
+git status
+```
+
+| What it says | What it means | Way out |
+|---|---|---|
+| `rebase in progress` | A rebase stopped on a conflict | `git rebase --continue` or `--abort` |
+| `You have unmerged paths` | A merge conflict is open | Resolve, `git add`, `git merge --continue` |
+| `detached HEAD` | HEAD points at a commit, not a branch | `git switch -` or `git switch -c name` |
+| `Unmerged paths` after cherry-pick | Conflict during cherry-pick | `git cherry-pick --continue` or `--abort` |
+| `nothing to commit, working tree clean` | Nothing is wrong | The problem is elsewhere |
+
+<Callout type="tip" title="Everything has an --abort">
+  `merge`, `rebase`, `cherry-pick` and `revert` all accept `--abort`, which returns you to exactly
+  where you were before you started. If you are lost mid-operation, aborting and trying again
+  deliberately is almost always better than fighting through.
+</Callout>
+
+## "I lost commits"
+
+```bash
+git reflog
+```
+
+Every movement of HEAD is here, with a hash. Find the entry from before things went wrong:
+
+```bash
+git reset --hard HEAD@{5}
+```
+
+Or, more cautiously, look first:
+
+```bash
+git show HEAD@{5}
+git switch -c recovery HEAD@{5}
+```
+
+If the commits were never on your HEAD — a branch someone deleted, say — look for dangling
+objects:
+
+```bash
+git fsck --lost-found
+```
+
+## "My branch and the remote have diverged"
+
+```
+Your branch and 'origin/main' have diverged,
+and have 2 and 3 different commits each, respectively.
+```
+
+Decide what you want:
+
+```bash
+# Keep both sets, with a merge commit
+git pull --no-rebase
+
+# Replay your commits on top of theirs — linear
+git pull --rebase
+
+# Throw away your local commits entirely
+git reset --hard origin/main
+```
+
+<Callout type="danger">
+  `git reset --hard origin/main` discards your local commits. Run `git log origin/main..HEAD`
+  first to see exactly what you are about to lose.
+</Callout>
+
+## "A file keeps showing as modified and I have not touched it"
+
+Almost always line endings or file mode.
+
+```bash
+git diff path/to/file        # if the diff looks empty, it is whitespace
+```
+
+```bash
+# Line endings — apply the .gitattributes from chapter two, then:
+git rm --cached -r .
+git reset --hard
+
+# File mode (chmod) noise:
+git config core.fileMode false
+```
+
+## "Someone deleted the branch I needed"
+
+If you have it locally:
+
+```bash
+git switch -c recovered origin/deleted-branch    # if the ref is still cached
+git reflog                                       # otherwise find the hash here
+```
+
+If only the remote had it, GitHub keeps deleted branches for a while — check the closed pull
+request, which still shows the commits and lets you restore the branch.
+
+## "The repository is enormous"
+
+```bash
+git count-objects -vH
+```
+
+Find the biggest blobs:
+
+```bash
+git rev-list --objects --all |
+  git cat-file --batch-check='%(objecttype) %(objectname) %(objectsize) %(rest)' |
+  awk '/^blob/ {print substr($0, 6)}' |
+  sort -k2 -n -r | head -20
+```
+
+Then remove them with `git filter-repo`, and remember that every collaborator must re-clone
+afterwards.
+
+## "I need to undo something that is already pushed"
+
+```bash
+git revert <hash>
+```
+
+This creates a new commit that reverses the old one. History stays intact, nobody else's clone
+breaks, and the change is undone. For a merge commit:
+
+```bash
+git revert -m 1 <merge-hash>
+```
+
+`-m 1` means "keep the first parent's side", which is almost always what you want.
+
+## "Which commit broke this?"
+
+```bash
+git bisect start
+git bisect bad
+git bisect good <known-good-tag>
+# test, then `git bisect good` or `git bisect bad`, until Git names it
+git bisect reset
+```
+
+Automate it if you have a test:
+
+```bash
+git bisect start HEAD v1.2.0
+git bisect run npm test
+```
+
+Git finds the exact commit unattended.
+
+## The mental checklist
+
+When something looks wrong, in order:
+
+1. **`git status`** — what does Git think is happening?
+2. **`git log --graph --all`** — what does the history actually look like?
+3. **`git reflog`** — where have I been?
+4. **`--abort`** — if mid-operation, get back to a known state
+5. **Branch before experimenting** — `git switch -c attempt` costs nothing
+
+<Callout type="note" title="Almost nothing is unrecoverable">
+  Committed work survives reset, rebase, branch deletion and force push, because objects stay in
+  the database and the reflog remembers the hashes. The only real way to lose work in Git is to
+  destroy changes that were never committed. That is the whole reason "commit early, commit often"
+  is the advice everyone gives.
+</Callout>
+
+## You have finished the guide
+
+You understand the object model, you can branch and merge deliberately rather than hopefully, you
+know which commands rewrite history and which do not, and you can recover from the situations
+that previously meant re-cloning.
+
+If your next step is running that code somewhere, the [Docker guide](/guides/docker) starts the
+same way this one did — with the problem, before the commands.

@@ -1,20 +1,24 @@
 import rss from '@astrojs/rss';
 import type { APIContext } from 'astro';
-import { getReviews, getArticles } from '@/lib/content';
+import { getGuideSections, getArticles, pathOf, toolSlugOf } from '@/lib/content';
+import { toolBySlug } from '@/data/tools';
 import { SITE, SITE_URL } from '@/consts';
 
 export async function GET(context: APIContext) {
-  const [reviews, articles] = await Promise.all([getReviews(), getArticles()]);
+  const [sections, articles] = await Promise.all([getGuideSections(), getArticles()]);
 
   const items = [
-    ...reviews.map((review) => ({
-      title: review.data.title,
-      description: review.data.description,
-      pubDate: review.data.pubDate,
-      link: `/reviews/${review.id}`,
-      categories: [review.data.category, ...review.data.tags],
-      author: review.data.author,
-    })),
+    ...sections.map((section) => {
+      const tool = toolBySlug(toolSlugOf(section));
+      return {
+        title: `${tool?.name ?? 'Guide'}: ${section.data.title}`,
+        description: section.data.description,
+        pubDate: section.data.pubDate,
+        link: pathOf(section),
+        categories: [tool?.category ?? 'Guides', ...section.data.tags],
+        author: section.data.author,
+      };
+    }),
     ...articles.map((article) => ({
       title: article.data.title,
       description: article.data.description,

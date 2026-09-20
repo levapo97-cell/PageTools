@@ -1,0 +1,141 @@
+---
+title: The one idea Kubernetes is built on
+description: >-
+  Kubernetes looks like a thousand YAML fields. It is really one idea — the reconciliation loop —
+  applied consistently. Learn that first and the YAML stops being arbitrary.
+order: 1
+pubDate: 2026-09-20
+tags: [kubernetes, k8s, fundamentals, orchestration]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Kubernetes has a reputation for complexity that is half deserved. The operational surface is
+genuinely large. But the *conceptual* core is one idea, and almost every confusing thing becomes
+predictable once you have it.
+
+This chapter is that idea. No YAML yet.
+
+## The problem: one machine is not enough
+
+You containerised your application (the [Docker guide](/guides/docker) covers that) and it runs.
+Then reality arrives:
+
+- The machine it runs on will eventually fail, and you would like the app not to.
+- Traffic triples on Black Friday and you need six copies, then one again on Tuesday.
+- You deploy twenty times a day and cannot drop requests while doing it.
+- Ten services need to find each other without you hardcoding IP addresses.
+
+You can solve each of these with scripts. Teams did, for years. The scripts become a system, the
+system becomes undocumented, and the person who wrote it leaves.
+
+## The idea: declare the desired state, let a loop maintain it
+
+Kubernetes inverts how you interact with infrastructure. You never tell it to do anything. You
+tell it **what should be true**, and a control loop works continuously to make reality match.
+
+```
+   ┌──────────────────────────────────────────┐
+   │                                          │
+   │   You declare:  "3 replicas of this"     │
+   │                      │                   │
+   │                      ▼                   │
+   │              ┌───────────────┐           │
+   │              │  Controller   │           │
+   │              └───────┬───────┘           │
+   │                      │                   │
+   │        observes ─────┼───── acts         │
+   │                      ▼                   │
+   │              ┌───────────────┐           │
+   │              │    Reality    │           │
+   │              │   (2 pods)    │           │
+   │              └───────────────┘           │
+   │                                          │
+   └──────────────────────────────────────────┘
+              "I need one more" → creates it
+```
+
+The loop runs forever:
+
+1. Read the desired state
+2. Observe the actual state
+3. If they differ, take one step to close the gap
+4. Repeat
+
+Kill a pod and it comes back — not because something detected a failure and responded, but
+because the loop noticed the count was 2 when it should be 3, and acted. There is no special
+"recovery" code path. Recovery is the normal path.
+
+<Callout type="note" title="This is the whole trick">
+  Every Kubernetes object works this way. A Deployment reconciles pod counts. A Service reconciles
+  network routing. cert-manager reconciles TLS certificates. An operator you write yourself
+  reconciles whatever you teach it to. Learn the pattern once and every new Kubernetes component
+  becomes legible.
+</Callout>
+
+## Why everything is declarative YAML
+
+Once you accept the loop, the YAML makes sense. It is not configuration for a program to execute
+— it is a **statement of desired state** submitted to the API server and stored in etcd.
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+spec:
+  replicas: 3
+```
+
+That is not an instruction to start three pods. It is an assertion that three should exist. The
+difference sounds pedantic and it is the whole design.
+
+It also explains why `kubectl apply` is idempotent, why you can lose the control plane and the
+workloads keep running, and why Kubernetes configuration fits GitOps so naturally: the desired
+state is a file, so a Git repository can be the source of truth and a controller can reconcile
+the cluster against it.
+
+## What a cluster is made of
+
+Two kinds of machine, and you rarely touch the first.
+
+**The control plane** — the brain:
+
+- **API server** — the only component anything talks to. Every read and write goes through it.
+- **etcd** — the database holding all desired and observed state.
+- **Scheduler** — decides which node a new pod should run on.
+- **Controller manager** — runs the reconciliation loops.
+
+**The nodes** — where your containers actually run:
+
+- **kubelet** — the agent that starts and supervises containers on that node.
+- **Container runtime** — containerd, usually. This is what actually runs your Docker images.
+- **kube-proxy** — programs the networking rules that make Services work.
+
+<Callout type="tip" title="Use a managed control plane">
+  Everything in this guide assumes EKS, GKE, AKS or equivalent. Running your own control plane is
+  a specialist job with real operational cost and almost nobody needs to do it. Managed control
+  planes cost $0–75 a month and remove an entire category of work.
+</Callout>
+
+## When you should not use Kubernetes
+
+Being honest about this saves teams a quarter.
+
+Kubernetes earns its complexity when you have **variable load** that autoscaling meaningfully
+cheapens, **many services** that need to find each other, **multiple teams** sharing
+infrastructure, or compliance requirements that want namespaces, RBAC and network policies.
+
+It does **not** earn its complexity for a single application with steady traffic. A container on
+a VM, or a platform-as-a-service, will serve you better and cost far less attention. A
+three-person team can lose a quarter to ingress controllers, cert-manager, monitoring and RBAC
+and ship nothing else.
+
+The honest test: **can you name the number this will improve?** If the answer is "it is what
+everyone uses", it is not yet time.
+
+## What you will learn here
+
+A local cluster, the objects that matter (Pod, Deployment, Service, Ingress, ConfigMap, Secret),
+a real application deployed and exposed, the commands you will actually use, the mistakes that
+cause outages, and how to debug a pod that will not start.
+
+Next: getting a cluster on your laptop.

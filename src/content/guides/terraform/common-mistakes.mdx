@@ -1,0 +1,250 @@
+---
+title: The mistakes that destroy databases
+description: >-
+  Terraform mistakes are more expensive than most, because the plan you did not read deletes
+  production. Here are the ones that actually happen, and how to make them impossible.
+order: 6
+pubDate: 2026-09-20
+tags: [terraform, mistakes, state, safety]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Terraform errors have a different weight to application errors. A typo in a web app throws a 500.
+A typo in Terraform can destroy a production database, and the plan told you it was going to.
+
+## 1. Not reading the plan
+
+This is the one that causes the incidents.
+
+```
+-/+ resource "aws_db_instance" "main" {
+      ~ identifier = "prod-db" -> "production-db" # forces replacement
+    }
+```
+
+`forces replacement` means **destroy and recreate**. On an RDS instance that is your data.
+
+<Callout type="danger" title="The two strings to search for">
+  Every plan, every time: search for `must be replaced` and `destroy`. If either appears and you
+  did not intend it, stop. The plan is not a formality — it is the only warning you get.
+</Callout>
+
+Make it structural rather than a matter of discipline:
+
+```hcl
+resource "aws_db_instance" "main" {
+  lifecycle {
+    prevent_destroy = true
+  }
+}
+```
+
+Now Terraform refuses to produce a plan that destroys it. Removing the protection is a deliberate,
+reviewable code change.
+
+## 2. Committing state, or losing it
+
+```bash
+git add .          # and terraform.tfstate goes with it
+```
+
+State contains database passwords and private keys in plaintext. Once committed, it is in every
+clone and every fork.
+
+The mirror-image failure is losing state entirely — a laptop dies with the only copy. Terraform
+then believes it manages nothing and plans to create everything that already exists.
+
+**Both are solved by the same thing**: remote state with encryption, versioning and locking, set
+up on day one.
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "myorg-terraform-state"
+    key          = "prod/terraform.tfstate"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
+
+## 3. Renaming a resource and getting a destroy plan
+
+```hcl
+# before
+resource "aws_s3_bucket" "uploads" { ... }
+
+# after — looks harmless
+resource "aws_s3_bucket" "user_uploads" { ... }
+```
+
+```
+Plan: 1 to add, 0 to change, 1 to destroy.
+```
+
+The **address** changed, so Terraform sees the old one as removed and the new one as new. It has
+no idea they are the same bucket.
+
+```bash
+terraform state mv aws_s3_bucket.uploads aws_s3_bucket.user_uploads
+terraform plan     # now: No changes.
+```
+
+Or declare it in code, which is reviewable:
+
+```hcl
+moved {
+  from = aws_s3_bucket.uploads
+  to   = aws_s3_bucket.user_uploads
+}
+```
+
+## 4. Hardcoding values that should be variables
+
+```hcl
+resource "aws_instance" "app" {
+  ami           = "ami-0abcdef1234567890"   # region-specific, and rots
+  instance_type = "t3.large"                # same in dev as in prod?
+  subnet_id     = "subnet-0123456789abcdef" # copied from the console
+}
+```
+
+That configuration works in exactly one region, in exactly one account, until the AMI is
+deprecated.
+
+```hcl
+data "aws_ami" "al2023" {
+  most_recent = true
+  owners      = ["amazon"]
+
+  filter {
+    name   = "name"
+    values = ["al2023-ami-*-x86_64"]
+  }
+}
+
+resource "aws_instance" "app" {
+  ami           = data.aws_ami.al2023.id
+  instance_type = var.instance_type
+  subnet_id     = module.vpc.private_subnets[0]
+}
+```
+
+<Callout type="warning" title="most_recent = true has a catch">
+  It means a new AMI release can produce a replacement plan on a run where you changed nothing.
+  For production, pin the AMI id in a variable and bump it deliberately.
+</Callout>
+
+## 5. Secrets in variables, and then in state
+
+```hcl
+variable "db_password" {
+  type = string
+}
+```
+
+Passed on the command line, it lands in your shell history. Passed in a `.tfvars`, it is one
+`git add` from being committed. Either way it ends up in state in plaintext.
+
+Generate it instead, and store it in a secrets manager:
+
+```hcl
+resource "random_password" "db" {
+  length  = 32
+  special = true
+}
+
+resource "aws_secretsmanager_secret" "db" {
+  name = "${local.name_prefix}/db-password"
+}
+
+resource "aws_secretsmanager_secret_version" "db" {
+  secret_id     = aws_secretsmanager_secret.db.id
+  secret_string = random_password.db.result
+}
+
+resource "aws_db_instance" "main" {
+  password = random_password.db.result
+}
+```
+
+The password is never typed by a human and never leaves the infrastructure. It is still in state —
+which is why state encryption is not optional.
+
+## 6. One giant configuration
+
+A single directory with 300 resources means every `plan` refreshes all 300 (slow), every apply
+risks all of them (dangerous), and one person applying blocks everyone else (state lock).
+
+Split by blast radius and change frequency:
+
+```
+infrastructure/
+├── network/       # changes rarely
+├── data/          # databases — changes rarely, very high stakes
+└── application/   # changes daily
+```
+
+Wire them together with remote state data sources:
+
+```hcl
+data "terraform_remote_state" "network" {
+  backend = "s3"
+  config = {
+    bucket = "myorg-terraform-state"
+    key    = "prod/network/terraform.tfstate"
+    region = "us-east-1"
+  }
+}
+
+resource "aws_instance" "app" {
+  subnet_id = data.terraform_remote_state.network.outputs.private_subnet_ids[0]
+}
+```
+
+Now a daily application change cannot plan a VPC deletion.
+
+## 7. `count` on a list, then removing the middle element
+
+```hcl
+resource "aws_instance" "app" {
+  count = length(var.names)
+  tags  = { Name = var.names[count.index] }
+}
+```
+
+Remove the middle name from the list, and every instance after it shifts index — so Terraform
+destroys and recreates all of them.
+
+`for_each` keys by a stable string instead:
+
+```hcl
+resource "aws_instance" "app" {
+  for_each = toset(var.names)
+  tags     = { Name = each.key }
+}
+```
+
+Removing one name now destroys exactly one instance.
+
+<Callout type="tip" title="Default to for_each">
+  Use `count` only for "zero or one of this thing" — a resource behind a feature flag. For
+  collections, `for_each` is nearly always correct, and it prevents an entire category of
+  accidental replacement.
+</Callout>
+
+## 8. Ignoring drift
+
+Someone changed something in the console during an incident. Your next apply silently reverts it,
+possibly re-breaking whatever the change fixed.
+
+```bash
+terraform plan -detailed-exitcode
+# exit 0 = no changes, 1 = error, 2 = changes present
+```
+
+Run that on a schedule in CI and alert on exit code 2. You want to hear about drift on a Tuesday
+morning, not during the next deploy.
+
+Next: what to do when Terraform is already stuck.

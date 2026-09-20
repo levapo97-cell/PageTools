@@ -1,0 +1,178 @@
+---
+title: The commands you will use every day
+description: >-
+  The working set of Git commands, grouped by what you are trying to do rather than
+  alphabetically, with the ones worth learning properly flagged.
+order: 5
+pubDate: 2026-09-20
+tags: [git, cli, workflow]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Git has over 150 commands. You will use about twenty. Here they are, grouped by intent.
+
+## Seeing where you are
+
+```bash
+git status                 # the single most useful command in Git
+git status -sb             # short format, one line per file
+git log --oneline -10
+git lg                     # the graph alias from chapter two
+git diff                   # working tree vs index
+git diff --staged          # index vs HEAD — what you are about to commit
+git show HEAD              # the last commit, with its diff
+```
+
+Run `git status` constantly. It tells you which branch you are on, what is staged, what is not,
+and — importantly — it suggests the command for whatever situation you are in.
+
+## Staging and committing
+
+```bash
+git add file.js
+git add src/                # a directory
+git add -p                  # interactively, hunk by hunk
+git add -A                  # everything, including deletions
+
+git restore --staged file.js   # unstage, keep the change
+git restore file.js            # discard the change entirely (destructive)
+
+git commit -m "message"
+git commit                     # opens your editor for a longer message
+git commit --amend             # rewrite the last commit
+git commit --amend --no-edit   # ...keeping the same message
+```
+
+<Callout type="tip" title="Learn git add -p">
+  `git add -p` walks you through each change and asks whether to stage it. It takes thirty seconds
+  to learn and it is the difference between commits that tell a story and commits called
+  "various fixes". It is also how you catch the debug statement before it ships.
+</Callout>
+
+## Branching
+
+```bash
+git switch main              # change branch
+git switch -c feature/x      # create and change
+git switch -                 # back to the previous branch
+git branch                   # list local
+git branch -a                # including remotes
+git branch -d feature/x      # delete (safe)
+git branch -m new-name       # rename the current branch
+```
+
+`git switch` and `git restore` were introduced specifically to split up `git checkout`, which
+used to do both jobs and several others. If you learned `checkout`, it still works — but the new
+commands are much harder to misuse.
+
+## Syncing with the remote
+
+```bash
+git fetch                    # update origin/*, change nothing else
+git fetch --prune            # ...and drop refs for deleted remote branches
+git pull                     # fetch + rebase (with the chapter-two config)
+git push
+git push -u origin branch    # first push of a new branch
+git push --force-with-lease  # after a rebase — see the warning below
+```
+
+<Callout type="danger" title="--force-with-lease, never --force">
+  `--force` overwrites the remote branch unconditionally, including commits a colleague pushed
+  thirty seconds ago. `--force-with-lease` refuses if the remote has moved since your last fetch.
+  Same outcome when you are right; a rejection instead of a catastrophe when you are wrong.
+</Callout>
+
+## Undoing things
+
+This is the table worth bookmarking.
+
+| Situation | Command |
+|---|---|
+| Unstage a file | `git restore --staged file` |
+| Discard uncommitted changes to a file | `git restore file` |
+| Discard **all** uncommitted changes | `git restore .` |
+| Change the last commit message | `git commit --amend` |
+| Add a forgotten file to the last commit | `git add file && git commit --amend --no-edit` |
+| Undo the last commit, keep the changes staged | `git reset --soft HEAD~1` |
+| Undo the last commit, keep changes unstaged | `git reset HEAD~1` |
+| Undo the last commit and the changes | `git reset --hard HEAD~1` |
+| Undo a commit that is already pushed | `git revert <hash>` |
+| Recover something you think you destroyed | `git reflog` then `git reset --hard HEAD@{n}` |
+
+The distinction that matters: **`reset` rewrites history, `revert` adds to it.** On a shared
+branch, always `revert` — it creates a new commit that undoes the old one, so nobody else's
+history changes.
+
+## Stashing
+
+```bash
+git stash                    # shelve your changes
+git stash -u                 # including untracked files
+git stash list
+git stash pop                # restore the most recent and remove it
+git stash apply stash@{2}    # restore a specific one, keep it in the list
+git stash drop stash@{0}
+```
+
+<Callout type="warning" title="git stash without -u loses new files">
+  Plain `git stash` ignores untracked files. You switch branch, and the new file you just created
+  is still sitting there — or gets overwritten. Use `git stash -u` by default.
+</Callout>
+
+## Finding things
+
+```bash
+git log --oneline --author="Ana"
+git log --since="2 weeks ago"
+git log -S "functionName"        # commits that added or removed this string
+git log -p path/to/file          # full history of one file, with diffs
+git blame path/to/file           # who last changed each line, and in which commit
+git grep "TODO"                  # grep the tracked files
+```
+
+`git log -S` — the "pickaxe" — is how you find when a line was introduced or deleted. It is
+enormously useful and almost nobody knows it exists.
+
+## Two commands worth learning properly
+
+**`git bisect`** — binary search through history for the commit that broke something:
+
+```bash
+git bisect start
+git bisect bad                 # current commit is broken
+git bisect good v1.2.0         # this tag was fine
+# Git checks out the midpoint; test it, then:
+git bisect good    # or: git bisect bad
+# repeat until Git names the culprit
+git bisect reset
+```
+
+Twelve steps finds the bad commit in a history of four thousand. It can also be automated with
+`git bisect run ./test.sh`, which turns an afternoon into ninety seconds.
+
+**`git reflog`** — the record of everywhere HEAD has been. This is your undo button for the
+commands that feel dangerous, and it is why almost nothing in Git is truly unrecoverable.
+
+## A realistic day
+
+```bash
+git switch main && git pull
+git switch -c fix/login-redirect
+
+# ... work ...
+git add -p
+git commit -m "fix(auth): keep the return URL through the OAuth round trip"
+
+# main moved while you worked
+git fetch
+git rebase origin/main
+
+git push -u origin fix/login-redirect
+# ... PR, review, merge ...
+
+git switch main && git pull
+git branch -d fix/login-redirect
+```
+
+Next: the mistakes that produce most of the Git questions on the internet.

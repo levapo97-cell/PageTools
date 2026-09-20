@@ -1,0 +1,219 @@
+---
+title: The mistakes that cause outages
+description: >-
+  Missing resource requests, liveness probes that cascade, latest tags, and the label mismatch
+  that silently routes traffic nowhere.
+order: 6
+pubDate: 2026-09-20
+tags: [kubernetes, mistakes, reliability, production]
+---
+
+import Callout from '@/components/Callout.astro';
+
+These are the ones that cause real incidents, roughly in order of frequency.
+
+## 1. No resource requests
+
+```yaml
+spec:
+  containers:
+    - name: app
+      image: myapp:1.0
+      # no resources block
+```
+
+With no request, the scheduler assumes the pod needs nothing and packs nodes until they are
+exhausted. Under load, the kubelet starts evicting pods — and pods with no requests are evicted
+first, because they are in the lowest QoS class.
+
+```yaml
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    memory: 256Mi
+```
+
+<Callout type="warning" title="Memory limits kill, CPU limits throttle">
+  Exceeding a memory limit gets the container OOMKilled. Exceeding a CPU limit gets it throttled —
+  slowed, not killed. An aggressive CPU limit produces mysterious latency spikes that look like
+  application problems. Set CPU *requests* and memory *limits*; think carefully before setting CPU
+  limits at all.
+</Callout>
+
+Enforce it cluster-wide with a LimitRange or a policy engine so it cannot be forgotten.
+
+## 2. A liveness probe that cascades
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /health      # and /health checks the database
+```
+
+The database gets slow. Every pod's liveness probe fails. Kubernetes restarts every pod
+simultaneously. The restarts hammer the database, which gets slower. You have turned a
+degradation into a full outage.
+
+<Callout type="danger" title="Liveness means 'is this process wedged', nothing more">
+  A liveness probe should check that the process itself is responsive — nothing about its
+  dependencies. Dependency health belongs in the **readiness** probe, which removes the pod from
+  the Service without restarting it. That distinction is the difference between degraded and down.
+</Callout>
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /livez        # returns 200 if the event loop is alive. Nothing else.
+readinessProbe:
+  httpGet:
+    path: /readyz       # checks the database — safe to fail
+```
+
+## 3. `image: latest`
+
+```yaml
+image: myapp:latest
+imagePullPolicy: Always
+```
+
+Every pod restart may pull a different image. Your three replicas can be running three different
+builds. Rollback is impossible because there is nothing to roll back to.
+
+```yaml
+image: myregistry/myapp:1.4.2
+# or, exactly:
+image: myregistry/myapp@sha256:abc123...
+```
+
+Tag with the commit SHA in CI. It is free and it makes every deploy traceable.
+
+## 4. Selector and label mismatch
+
+```yaml
+# Service
+spec:
+  selector:
+    app: web
+
+# Deployment pod template
+  template:
+    metadata:
+      labels:
+        app: web-api       # ← does not match
+```
+
+The Service has no endpoints. Connections fail. Nothing reports an error, because from
+Kubernetes' point of view nothing is wrong — you asked for a Service selecting `app: web` and
+there are no such pods.
+
+```bash
+kubectl get endpoints web
+```
+
+Empty output means this. Make it the first thing you check when "the service does not work".
+
+## 5. Secrets in Git
+
+```yaml
+apiVersion: v1
+kind: Secret
+stringData:
+  DATABASE_PASSWORD: "actual-production-password"
+```
+
+Committed, and now in every clone forever. Base64 encoding is not encryption and does not help.
+
+Use **Sealed Secrets** (encrypted with a cluster key, safe to commit) or the **External Secrets
+Operator** (syncs from AWS Secrets Manager, Vault or equivalent). Both let you keep manifests in
+Git without keeping credentials there.
+
+## 6. No PodDisruptionBudget
+
+A node drains for maintenance. Every replica of your service happens to be on it. They all
+terminate at once and the service is down until they reschedule.
+
+```yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: web
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: web
+```
+
+The drain now proceeds one pod at a time, waiting for replacements. Pair it with anti-affinity so
+the replicas were not all on one node to begin with:
+
+```yaml
+spec:
+  topologySpreadConstraints:
+    - maxSkew: 1
+      topologyKey: kubernetes.io/hostname
+      whenUnsatisfiable: ScheduleAnyway
+      labelSelector:
+        matchLabels:
+          app: web
+```
+
+## 7. Ignoring graceful shutdown
+
+Kubernetes sends `SIGTERM`, waits 30 seconds, then sends `SIGKILL`. An application that does not
+handle `SIGTERM` drops every in-flight request on every deploy.
+
+```js
+process.on('SIGTERM', async () => {
+  server.close(async () => {
+    await db.end();
+    process.exit(0);
+  });
+});
+```
+
+There is also a race: the pod may receive `SIGTERM` before kube-proxy has removed it from the
+Service's endpoints, so traffic arrives at a shutting-down pod. The standard fix is a brief
+pre-stop sleep:
+
+```yaml
+lifecycle:
+  preStop:
+    exec:
+      command: ["sh", "-c", "sleep 5"]
+```
+
+## 8. Running everything in `default`
+
+No namespace separation means no RBAC boundary, no resource quota, and `kubectl delete all
+--all` taking out everything at once.
+
+```bash
+kubectl create namespace team-a
+kubectl create namespace team-b
+```
+
+Then apply quotas per namespace so one team cannot consume the cluster.
+
+## 9. Mounting a ConfigMap and expecting a restart
+
+You updated a ConfigMap. Nothing happened. Environment variables are injected at container start
+and never change afterwards.
+
+```bash
+kubectl rollout restart deployment/web
+```
+
+Or add a checksum annotation to the pod template so a ConfigMap change alters the template and
+triggers a rollout automatically — this is what Helm charts do with
+`checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}`.
+
+<Callout type="tip" title="The production checklist">
+  Requests and limits · readiness and liveness probes that check the right things · pinned image
+  tags · a PodDisruptionBudget · topology spread · graceful `SIGTERM` handling · a namespace with a
+  quota. Seven items, and they prevent most of the incidents in this chapter.
+</Callout>
+
+Next: debugging when a pod will not start.

@@ -1,0 +1,71 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ToolCard from '@/components/ToolCard.astro';
+import SectionHeading from '@/components/SectionHeading.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import { getGuides } from '@/lib/content';
+import { collectionPageSchema, breadcrumbSchema } from '@/lib/schema';
+
+const guides = await getGuides();
+const categories = [...new Set(guides.map((g) => g.tool.category))].sort();
+const totalChapters = guides.reduce((sum, g) => sum + g.sections.length, 0);
+
+const title = 'Developer tool guides';
+const description =
+  'Step-by-step guides to the tools developers actually deploy. Each one starts with the problem the tool solves, not with its command line flags.';
+
+const crumbs = [
+  { href: '/', label: 'Home' },
+  { label: 'Guides' },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  keywords={['docker tutorial', 'git tutorial', 'terraform guide', 'kubernetes guide']}
+  schema={[
+    collectionPageSchema({
+      title,
+      description,
+      path: '/guides',
+      items: guides.map((guide) => ({
+        title: `${guide.tool.name} guide`,
+        path: `/guides/${guide.tool.slug}`,
+      })),
+    }),
+    breadcrumbSchema(crumbs),
+  ]}
+>
+  <div class="container-page py-10 lg:py-14">
+    <Breadcrumbs items={crumbs} />
+
+    <div class="mt-8">
+      <SectionHeading
+        eyebrow={`${guides.length} guides · ${totalChapters} chapters`}
+        title="Guides"
+        description={description}
+      />
+    </div>
+
+    <AdSlot slot="displayHorizontal" format="horizontal" />
+
+    {categories.map((category) => (
+      <section class="mt-12">
+        <h2 class="text-xl font-extrabold tracking-tight text-ink">{category}</h2>
+        <div class="mt-6 grid gap-6 md:grid-cols-2">
+          {guides
+            .filter((guide) => guide.tool.category === category)
+            .map((guide) => (
+              <ToolCard guide={guide} />
+            ))}
+        </div>
+      </section>
+    ))}
+
+    {guides.length === 0 && (
+      <p class="mt-12 text-ink-muted">No guides published yet. Check back shortly.</p>
+    )}
+  </div>
+</BaseLayout>

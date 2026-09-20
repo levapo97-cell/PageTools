@@ -5,7 +5,7 @@ import { SITE, LEGAL } from '@/consts';
 
 <LegalLayout
   title="Terms of use"
-  description="The terms governing your use of DevToolSDK: what you may do with our content, what our reviews are and are not, and the limits of our liability."
+  description="The terms governing your use of DevToolSDK: what you may do with our content, what our guides are and are not, and the limits of our liability."
   path="/terms"
   lead="Short, readable, and written to be understood rather than to be impossible to argue with."
 >
@@ -17,23 +17,24 @@ import { SITE, LEGAL } from '@/consts';
 
   <h2 id="what-this-is">2. What this site is</h2>
   <p>
-    {SITE.name} publishes editorial opinion about software tools, based on hands-on testing
-    described in our <a href="/about#methodology">methodology</a>. Our reviews are journalism,
-    not professional advice.
+    {SITE.name} publishes educational guides about software tools, written and verified as
+    described in our <a href="/about#how-we-write">editorial process</a>. Our guides are
+    documentation and opinion, not professional advice.
   </p>
   <p>
     Specifically, nothing on this site constitutes legal, financial, security or procurement
-    advice. A score is our considered opinion at the time of publication, formed on our test
-    workload, which may differ from yours in ways that change the answer. Evaluate tools against
-    your own requirements before committing to them.
+    advice. A guide reflects the tool version stated at the top of the chapter, on the platforms
+    we tested, which may differ from your environment in ways that change the outcome. Commands
+    that modify systems, delete data or incur cloud costs are your responsibility to understand
+    before you run them.
   </p>
 
   <h2 id="accuracy">3. Accuracy and currency</h2>
   <p>
-    Software changes. Pricing changes faster. We revisit reviews when something material changes
-    and mark them with an updated date, but we cannot guarantee that every figure on every page is
-    current at the moment you read it. Always verify pricing and feature claims with the vendor
-    before making a purchasing decision.
+    Software changes, and command line flags change with it. We revisit guides when a release
+    invalidates a chapter and mark them with an updated date, but we cannot guarantee that every
+    command on every page works with the version you have installed. Always check the official
+    documentation for the version you are running.
   </p>
   <p>
     If you find an error, <a href="/contact">tell us</a> — corrections get priority over

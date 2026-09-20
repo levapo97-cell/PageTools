@@ -1,0 +1,119 @@
+---
+title: What Docker actually solves
+description: >-
+  Before any installation, understand the problem Docker was built for. Once you see why
+  "works on my machine" happens, every design decision in Docker stops looking arbitrary.
+order: 1
+pubDate: 2026-09-20
+tags: [docker, containers, fundamentals]
+---
+
+import Callout from '@/components/Callout.astro';
+
+You can learn Docker as a list of commands. Most people do, and most people then get stuck the
+first time something does not work, because a list of commands gives you no way to reason about
+what went wrong.
+
+This chapter has no commands in it. It is the twenty minutes that make the other six chapters
+make sense.
+
+## The problem: your machine is not the server
+
+Here is a situation every developer has been in.
+
+Your application runs perfectly on your laptop. You push it. It fails in staging. You spend two
+hours discovering that staging has Node 20 and you have Node 22, or that the server is missing a
+system library your package manager quietly installed for you three months ago, or that a file
+path is case-sensitive on Linux and was not on macOS.
+
+Nothing about your code was wrong. What was wrong is that **your application depends on far more
+than your code**, and all of it was invisible:
+
+- The language runtime and its exact version
+- System libraries — `libssl`, `libvips`, `glibc` and friends
+- Environment variables
+- The filesystem layout
+- The operating system itself
+
+You never declared any of that. It was just ambient, in your machine, accumulated over time.
+
+## The old answers, and why they were not enough
+
+**"Write it in a README."** Documentation drifts. Within a month the README says Node 20 and
+everyone is on 22, and nobody notices until a new hire loses a day.
+
+**Configuration management** — Chef, Puppet, Ansible. A real improvement: the setup becomes code.
+But it describes *steps to mutate a machine*, and applying the same steps to two machines in
+different starting states does not reliably produce the same result.
+
+**Virtual machines.** These genuinely solve it: ship the whole machine, OS and all. But a VM
+image is gigabytes, boots in a minute, and reserves its RAM whether or not it is using it. You
+cannot run thirty of them on a laptop, and you cannot start one per request.
+
+## What Docker does differently
+
+Docker takes the VM's guarantee — *ship the whole environment, not just the code* — and drops the
+part that made VMs heavy: the separate operating system kernel.
+
+A container is just **a normal Linux process**, started with its view of the world restricted:
+
+- **Namespaces** give it its own filesystem, network, and process tree. Inside the container, it
+  looks like it is alone on a machine. `ps` shows one process. `/` is not your `/`.
+- **cgroups** cap how much CPU and memory it can consume.
+- **A union filesystem** lets many containers share the same read-only base layers, so a hundred
+  containers built from the same image do not store a hundred copies of it.
+
+<Callout type="note" title="Containers are not small VMs">
+  This is the single most useful thing to internalise. A VM virtualises hardware and runs its own
+  kernel. A container is a process on *your* kernel that has been lied to about what it can see.
+  That is why a container starts in milliseconds and a VM takes a minute — there is no operating
+  system to boot.
+</Callout>
+
+## What that buys you
+
+**Reproducibility.** The environment is declared in a file, in your repository, reviewed in pull
+requests like anything else. There is no "it works on my machine" because the machine is part of
+what you shipped.
+
+**Speed.** Containers start in tens of milliseconds and use only the memory their process
+actually needs. Running your entire stack — app, database, cache, queue — on a laptop becomes
+routine.
+
+**Density.** A server that could host five VMs can host fifty containers, because there are not
+fifty copies of an operating system in the way.
+
+**A single unit of deployment.** Your application, its runtime, its libraries and its
+configuration become one artifact that moves from your laptop to CI to production unchanged. This
+is what made Kubernetes possible, and it is why container images have become the industry's
+universal deployment format.
+
+## What Docker is not
+
+Being clear about this saves a lot of confusion later.
+
+**It is not a security boundary you should rely on for untrusted code.** Containers share your
+kernel. A kernel vulnerability escapes them. For untrusted workloads you want a VM or something
+like gVisor or Firecracker underneath.
+
+**It does not make your application stateless.** Containers are ephemeral by default, and
+anything written inside one disappears when it is removed. Databases and uploads need volumes,
+which is chapter three.
+
+**It is not an orchestrator.** Docker runs containers on one machine. Running them across a fleet
+with health checks, rolling updates and autoscaling is what Kubernetes is for — and Kubernetes
+runs the same images you build here.
+
+<Callout type="tip">
+  If you only remember one sentence from this chapter: **a container is a process with a
+  restricted view of the system, and an image is the filesystem that process starts from.** Every
+  other concept in Docker follows from those two.
+</Callout>
+
+## What you will build in this guide
+
+By the end you will have containerised a real application, understood every line of the
+Dockerfile you wrote, run it alongside a database with Compose, and be able to diagnose the
+failures that actually happen rather than the ones tutorials cover.
+
+Next: getting Docker installed and verifying it works.

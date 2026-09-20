@@ -1,0 +1,176 @@
+---
+title: A local cluster and kubectl
+description: >-
+  Get a real Kubernetes cluster running locally in under five minutes, install kubectl, and set
+  up the two tools that make working with it bearable.
+order: 2
+pubDate: 2026-09-20
+tags: [kubernetes, kubectl, kind, setup]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+You do not need a cloud account to learn Kubernetes. A local cluster behaves the same way for
+everything in this guide.
+
+## Install kubectl
+
+```bash
+brew install kubectl                              # macOS
+sudo snap install kubectl --classic               # Ubuntu
+choco install kubernetes-cli                      # Windows
+```
+
+```bash
+kubectl version --client
+```
+
+This guide targets **Kubernetes 1.3x**. `kubectl` should be within one minor version of your
+cluster.
+
+## Pick a local cluster
+
+Three reasonable options.
+
+**kind** — runs Kubernetes nodes as Docker containers. Fast, disposable, closest to a real
+multi-node cluster. This guide uses it.
+
+```bash
+brew install kind
+```
+
+**minikube** — a VM or container based cluster with a large addon ecosystem.
+
+```bash
+brew install minikube && minikube start
+```
+
+**Docker Desktop** — enable Kubernetes in Settings. Simplest, single node, less configurable.
+
+## Create a cluster with kind
+
+A single node works, but a multi-node cluster lets you see scheduling behave realistically.
+`kind-config.yaml`:
+
+```yaml
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+nodes:
+  - role: control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            node-labels: "ingress-ready=true"
+    extraPortMappings:
+      - containerPort: 80
+        hostPort: 80
+        protocol: TCP
+      - containerPort: 443
+        hostPort: 443
+        protocol: TCP
+  - role: worker
+  - role: worker
+```
+
+```bash
+kind create cluster --name learn --config kind-config.yaml
+```
+
+The `extraPortMappings` matter: they let an Ingress on the cluster be reachable at
+`localhost:80`, which we use in chapter four.
+
+## Verify
+
+```bash
+kubectl cluster-info
+kubectl get nodes
+```
+
+```
+NAME                  STATUS   ROLES           AGE   VERSION
+learn-control-plane   Ready    control-plane   45s   v1.31.0
+learn-worker          Ready    <none>          30s   v1.31.0
+learn-worker2         Ready    <none>          30s   v1.31.0
+```
+
+```bash
+kubectl get pods -A
+```
+
+Everything in `kube-system` should be `Running`. If CoreDNS is stuck in `Pending`, the cluster is
+still starting — give it a minute.
+
+## Understand your kubeconfig
+
+`kubectl` reads `~/.kube/config`, which holds clusters, users, and **contexts** pairing them.
+
+```bash
+kubectl config get-contexts
+kubectl config current-context
+kubectl config use-context kind-learn
+```
+
+<Callout type="danger" title="This is how people apply to the wrong cluster">
+  `kubectl` has no idea whether you meant staging or production. The context is sticky and
+  invisible. Running a delete against the wrong context is one of the most common serious
+  incidents in Kubernetes operations — install the prompt indicator below today.
+</Callout>
+
+## The two tools that make this bearable
+
+**kubectx and kubens** — switch context and namespace without the long commands:
+
+```bash
+brew install kubectx
+
+kubectx                  # list contexts, pick one
+kubectx kind-learn
+kubens kube-system       # set the default namespace
+```
+
+**kube-ps1** — put the current context in your shell prompt:
+
+```bash
+brew install kube-ps1
+```
+
+```bash
+# ~/.zshrc
+source /opt/homebrew/share/kube-ps1/kube-ps1.sh
+PROMPT='$(kube_ps1)'$PROMPT
+```
+
+Your prompt now reads `(⎈|kind-learn:default)`. That line prevents the incident above.
+
+<Callout type="tip" title="Aliases and completion">
+  ```bash
+  source <(kubectl completion zsh)
+  alias k=kubectl
+  compdef __start_kubectl k
+  ```
+  You will type `kubectl` hundreds of times a day. Make it one character.
+</Callout>
+
+## Useful extras
+
+```bash
+brew install k9s        # terminal UI for the cluster — genuinely excellent
+brew install stern      # tail logs from many pods at once
+brew install helm       # the package manager, needed later
+```
+
+`k9s` in particular: run it once and you will use it daily. It turns "which pod is failing and
+why" from four commands into a keystroke.
+
+## Clean up
+
+```bash
+kind delete cluster --name learn
+```
+
+Recreating takes a minute, so feel free to destroy and rebuild while learning.
+
+Next: the objects the whole system is made of.

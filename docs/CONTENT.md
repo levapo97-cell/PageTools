@@ -1,11 +1,9 @@
 # Adding content
 
-Two collections, both plain Markdown with YAML frontmatter, both schema-validated at build time
-by `src/content.config.ts`. The filename becomes the URL slug.
+Two collections, both schema-validated at build time by `src/content.config.ts`.
 
-- `src/content/reviews/` → `/reviews/<filename>` — head-to-head comparisons, with ratings, a
-  comparison table and `Review` structured data.
-- `src/content/articles/` → `/articles/<filename>` — blog posts, guides, field notes.
+- **`src/content/guides/<tool>/<chapter>.mdx`** → `/guides/<tool>/<chapter>`
+- **`src/content/articles/<slug>.md`** → `/articles/<slug>`
 
 Run `npm run check` after adding a file. A missing or malformed field fails the build with the
 exact path and reason — that is deliberate, and it is why every published page has complete
@@ -15,84 +13,134 @@ Copy-paste starting points live in [`templates/`](templates).
 
 ---
 
-## Review frontmatter
+## Adding a chapter to an existing guide
+
+Drop a `.mdx` file into the tool's folder. The filename is the URL slug; `order` decides where it
+appears in the sidebar and the pager.
+
+```
+src/content/guides/docker/
+├── introduction.mdx       order: 1
+├── installation.mdx       order: 2
+├── core-concepts.mdx      order: 3
+├── first-project.mdx      order: 4
+├── everyday-workflow.mdx  order: 5
+├── common-mistakes.mdx    order: 6
+└── troubleshooting.mdx    order: 7
+```
+
+### Chapter frontmatter
 
 | Field | Type | Required | Notes |
 | ----- | ---- | -------- | ----- |
-| `title` | string ≤120 | yes | Used as `<h1>` and in `<title>` |
-| `description` | string 50–300 | yes | Meta description and card copy. Write it for a search result. |
+| `title` | string ≤120 | yes | The `<h1>` and the sidebar entry |
+| `description` | string 50–300 | yes | Meta description, card copy, and the HowTo step text |
+| `order` | positive integer | yes | Position in the curriculum. Must be unique within the tool. |
 | `pubDate` | date | yes | `YYYY-MM-DD` |
-| `updatedDate` | date | no | Shown in the byline, feeds `dateModified` |
+| `updatedDate` | date | no | Shown in the byline instead of `pubDate` |
 | `author` | string | no | Defaults to "The DevToolSDK Team" |
-| `category` | string | yes | Groups the listing page. Reuse an existing one where it fits. |
-| `tags` | string[] | no | Rendered as chips, emitted as `keywords` |
-| `rating` | number 0–5 | yes | Overall score, one decimal |
-| `verdict` | string | yes | One line: who wins, and when |
-| `summary` | string | yes | Two or three sentences under the verdict |
-| `tools` | Tool[] (1–2) | yes | See below |
-| `comparison` | Row[] | no | Feature-by-feature table |
-| `image` / `imageAlt` | image / string | no | Omit and a gradient card is generated |
-| `featured` | boolean | no | Surfaces on the home page |
+| `tags` | string[] | no | Emitted as `keywords` |
+| `howto` | boolean | no | Marks the chapter as step-by-step instructions |
 | `draft` | boolean | no | Visible in `dev`, excluded from the build |
 
-### `tools[]`
+---
 
-```yaml
-tools:
-  - name: Terraform
-    vendor: HashiCorp / IBM          # optional
-    url: https://www.terraform.io    # optional, must be a valid URL
-    rating: 4.6                      # 0–5
-    pricing: 'Open source CLI free; HCP from $0.00014/resource-hour'
-    bestFor: 'Teams running more than one cloud'
-    pros: ['At least one', 'Usually three or four']
-    cons: ['At least one', 'Be honest here — it is the whole point']
+## Adding a whole new tool
+
+Two steps.
+
+**1. Register the tool** in `src/data/tools.ts`. The `slug` must match the folder name.
+
+```ts
+{
+  slug: 'ansible',
+  name: 'Ansible',
+  category: 'Configuration Management',
+  tagline: 'One line on what it does, in plain words',
+  description: 'Two sentences for the card and the overview page.',
+  version: '10.x',                 // the version the guide was verified against
+  difficulty: 'Intermediate',      // Beginner | Intermediate | Advanced
+  duration: 120,                   // minutes for the whole guide
+  officialUrl: 'https://www.ansible.com',
+  docsUrl: 'https://docs.ansible.com',
+}
 ```
 
-Each tool becomes a `Review` node in the page's Schema.org graph, and renders as a pros/cons card.
+**2. Create `src/content/guides/ansible/` and add chapters.** The tool appears on `/guides` as
+soon as it has at least one published chapter, and `/guides/ansible` is generated automatically
+with the curriculum, the HowTo structured data and the sidebar.
 
-### `comparison[]`
-
-```yaml
-comparison:
-  - feature: Multi-cloud support
-    a: 'Native — one workflow across 4,000+ providers'
-    b: 'AWS only'
-    winner: a        # a | b | tie  (default: tie)
-```
-
-`a` is `tools[0]`, `b` is `tools[1]`. The winning cell is highlighted with a check mark.
+Nothing else needs touching — no route, no nav entry, no index.
 
 ---
 
-## Article frontmatter
+## The seven-chapter structure
 
-Same fields minus `rating`, `verdict`, `summary`, `tools` and `comparison`:
+Every guide follows the same order. The consistency is the point: once a reader has read one
+guide they know where to find things in all of them.
 
-```yaml
----
-title: 'How we test SaaS tools'
-description: >-
-  50 to 300 characters. This is what shows up in Google and on the card.
-pubDate: 2026-09-10
-author: The DevToolSDK Team
-category: Methodology
-tags: [methodology, transparency]
-featured: false
-draft: false
----
-```
+1. **Introduction** — the problem the tool solves. No installation, no commands.
+2. **Installation** — every platform, plus the commands that verify it worked.
+3. **Core concepts** — the three to five primitives everything else derives from.
+4. **First project** — a complete worked example, explained line by line.
+5. **Everyday workflow** — the commands that make up 90% of real use.
+6. **Common mistakes** — what everyone gets wrong and why the tool allows it.
+7. **Troubleshooting** — a diagnostic path, and what the error messages really mean.
+
+Chapters 3 and 6 are what distinguish these guides from the official documentation. If one of
+them is thin, the guide is not finished.
 
 ---
 
 ## Writing the body
 
-- Start at `##`. The `<h1>` comes from `title`; a second one hurts SEO.
-- Use `##` and `###` only — the table of contents ignores deeper levels, and it only appears when
-  there are more than two headings.
-- Code blocks get dual-theme Shiki highlighting automatically. Tag the language.
-- Markdown tables become horizontally scrollable on mobile without any extra markup.
-- Keep paragraphs short. The measure is ~46rem and long paragraphs read as walls on a phone.
+- Start headings at `##`. The `<h1>` comes from `title`.
+- Only `##` and `###` appear in the table of contents, which shows once there are more than two.
+- Tag every code block with a language. Shiki highlights for both themes automatically.
+- **Every command must have been run before publishing.** This is the site's one hard rule.
+- Tables become horizontally scrollable on mobile with no extra markup.
+- Link between guides — `[Docker guide](/guides/docker)` — the cross-links are load-bearing for
+  both readers and SEO.
+
+### Callouts
+
+```mdx
+import Callout from '@/components/Callout.astro';
+
+<Callout type="note">Default label is "Note".</Callout>
+<Callout type="tip">"Tip"</Callout>
+<Callout type="warning">"Watch out"</Callout>
+<Callout type="danger">"This will break things"</Callout>
+<Callout type="warning" title="Custom label">Overrides the default.</Callout>
+```
+
+Use `danger` only for data loss or security holes. If everything is a danger, nothing is.
+
+The import line is required in each `.mdx` file that uses a callout — that is how MDX works.
+
+---
+
+## Articles
+
+Blog posts, in `src/content/articles/`. Plain `.md` is fine; use `.mdx` if you want callouts.
+
+```yaml
+---
+title: 'How to learn a new developer tool in a weekend'
+description: >-
+  50 to 300 characters. The search snippet and the card copy.
+pubDate: 2026-09-18
+author: The DevToolSDK Team
+category: Learning
+tags: [learning, method]
+featured: false
+draft: false
+---
+```
+
+`featured: true` surfaces it on the home page.
+
+---
 
 ## Drafts
 
