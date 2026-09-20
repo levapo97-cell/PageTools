@@ -5,7 +5,7 @@ description: >-
   a year of real invoices across six vendors and catalogued the line items that show up after
   you have already migrated.
 pubDate: 2026-08-20
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Cost Engineering
 tags: [pricing, cloud-costs, finops, platforms]
 featured: true

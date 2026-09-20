@@ -1,6 +1,6 @@
 {
-  "name": "PageTools",
-  "short_name": "PageTools",
+  "name": "DevToolSDK",
+  "short_name": "DevToolSDK",
   "description": "Independent reviews and head-to-head comparisons of SaaS and developer tools.",
   "start_url": "/",
   "display": "standalone",

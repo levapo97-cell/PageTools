@@ -6,7 +6,7 @@ import type { APIContext } from 'astro';
  * disallowed wholesale to keep staging copies out of the index.
  */
 export async function GET(context: APIContext) {
-  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://pagetools.dev';
+  const site = context.site?.toString().replace(/\/$/, '') ?? 'https://devtoolsdk.com';
   const isPreview = /vercel\.app$/.test(new URL(site).hostname);
 
   const body = isPreview

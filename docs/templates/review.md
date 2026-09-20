@@ -5,7 +5,7 @@ description: >-
   compared, how, and what the reader gets out of reading it.
 pubDate: 2026-01-01
 # updatedDate: 2026-02-01
-author: The PageTools Team
+author: The DevToolSDK Team
 category: CI/CD
 tags: [tool-a, tool-b, category-keyword]
 rating: 4.3

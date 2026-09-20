@@ -5,7 +5,7 @@ description: >-
   change is worth the disruption, and they have talked us out of more migrations than into
   them.
 pubDate: 2026-07-24
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Engineering Strategy
 tags: [migration, architecture, decision-making, strategy]
 ---

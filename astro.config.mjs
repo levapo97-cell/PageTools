@@ -7,7 +7,7 @@ import tailwindcss from '@tailwindcss/vite';
  * The canonical origin drives sitemap, RSS, Open Graph and canonical tags.
  * Override it per environment with PUBLIC_SITE_URL (see .env.example).
  */
-const site = process.env.PUBLIC_SITE_URL ?? 'https://pagetools.dev';
+const site = process.env.PUBLIC_SITE_URL ?? 'https://devtoolsdk.com';
 
 export default defineConfig({
   site,

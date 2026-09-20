@@ -31,7 +31,7 @@ const reviews = defineCollection({
       description: z.string().min(50).max(300),
       pubDate: z.coerce.date(),
       updatedDate: z.coerce.date().optional(),
-      author: z.string().default('The PageTools Team'),
+      author: z.string().default('The DevToolSDK Team'),
       category: z.string(),
       tags: z.array(z.string()).default([]),
       /** Overall editorial score for the comparison, 0–5. */
@@ -56,7 +56,7 @@ const articles = defineCollection({
       description: z.string().min(50).max(300),
       pubDate: z.coerce.date(),
       updatedDate: z.coerce.date().optional(),
-      author: z.string().default('The PageTools Team'),
+      author: z.string().default('The DevToolSDK Team'),
       category: z.string(),
       tags: z.array(z.string()).default([]),
       image: image().optional(),

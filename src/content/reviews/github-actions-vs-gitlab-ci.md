@@ -5,7 +5,7 @@ description: >-
   runner costs and how painful the YAML got at scale. The answer depends less on features than
   on where your code already lives.
 pubDate: 2026-09-08
-author: The PageTools Team
+author: The DevToolSDK Team
 category: CI/CD
 tags: [github-actions, gitlab-ci, ci-cd, devops, pipelines]
 rating: 4.3

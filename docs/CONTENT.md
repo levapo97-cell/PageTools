@@ -23,7 +23,7 @@ Copy-paste starting points live in [`templates/`](templates).
 | `description` | string 50–300 | yes | Meta description and card copy. Write it for a search result. |
 | `pubDate` | date | yes | `YYYY-MM-DD` |
 | `updatedDate` | date | no | Shown in the byline, feeds `dateModified` |
-| `author` | string | no | Defaults to "The PageTools Team" |
+| `author` | string | no | Defaults to "The DevToolSDK Team" |
 | `category` | string | yes | Groups the listing page. Reuse an existing one where it fits. |
 | `tags` | string[] | no | Rendered as chips, emitted as `keywords` |
 | `rating` | number 0–5 | yes | Overall score, one decimal |
@@ -75,7 +75,7 @@ title: 'How we test SaaS tools'
 description: >-
   50 to 300 characters. This is what shows up in Google and on the card.
 pubDate: 2026-09-10
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Methodology
 tags: [methodology, transparency]
 featured: false

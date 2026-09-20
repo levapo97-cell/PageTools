@@ -5,7 +5,7 @@ description: >-
   compared bundle size, time to ship, and what onboarding a new developer actually looked like
   six weeks in.
 pubDate: 2026-07-02
-author: The PageTools Team
+author: The DevToolSDK Team
 category: Frontend Frameworks
 tags: [react, vue, frontend, javascript, frameworks]
 rating: 4.4
