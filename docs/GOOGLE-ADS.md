@@ -119,12 +119,45 @@ Rules this codebase already follows, and that you should keep following:
 
 ## 6. Before you go live
 
-- [ ] `ads.txt` uploaded to `public/ads.txt` with the line AdSense gives you
-      (`google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0`)
-- [ ] A privacy policy page explaining cookies and third-party advertising
-- [ ] GDPR/CCPA consent message configured in **AdSense → Privacy & messaging**
-- [ ] `PUBLIC_ADSENSE_ENABLED` set **only** on Production
-- [ ] Core Web Vitals re-measured with ads live
+Everything on this list except the last three items is already built and committed.
+
+| Requirement | Status |
+| ----------- | ------ |
+| Privacy policy covering cookies + third-party advertising | ✅ `/privacy` |
+| Terms of use | ✅ `/terms` |
+| Advertising & affiliate disclosure | ✅ `/disclosure` |
+| All three linked from every page | ✅ footer bottom bar |
+| About page with real editorial identity | ✅ `/about` |
+| Contact page with a working method | ✅ `/contact` |
+| Editorial methodology published | ✅ `/about#methodology` |
+| `ads.txt` | ✅ generated from `PUBLIC_ADSENSE_CLIENT` at `/ads.txt` |
+| Substantial original content | ✅ 11 reviews + 3 articles |
+| Working navigation, no dead ends, custom 404 | ✅ |
+| Favicon, OG image, web manifest | ✅ |
+| Mobile-responsive | ✅ |
+| **Real entity details in `LEGAL` (`src/consts.ts`)** | ⬜ you |
+| **Custom domain live with content** | ⬜ you |
+| **GDPR/CCPA consent message** (AdSense → Privacy & messaging) | ⬜ you |
+
+### `ads.txt`
+
+You do not need to create this file. `src/pages/ads.txt.ts` derives it from
+`PUBLIC_ADSENSE_CLIENT`, so the publisher id can never drift out of sync with the snippet in
+`Head.astro`. With no id set it contains comments only, which is correct — no ads are served in
+that configuration either.
+
+Verify after deploying: `curl https://yourdomain.com/ads.txt` should print
+
+```
+google.com, pub-XXXXXXXXXXXXXXXX, DIRECT, f08c47fec0942fa0
+```
+
+### Consent message
+
+Do **not** build your own cookie banner. For EEA, UK and Swiss traffic Google requires a
+consent management platform it has certified, and a homemade banner does not qualify. Use
+**AdSense → Privacy & messaging → GDPR message**, which is certified by definition and free.
+The privacy policy already describes this mechanism.
 
 ---
 

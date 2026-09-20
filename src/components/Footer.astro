@@ -1,5 +1,5 @@
 ---
-import { SITE, FOOTER_LINKS } from '@/consts';
+import { SITE, FOOTER_LINKS, LEGAL_LINKS } from '@/consts';
 import Newsletter from './Newsletter.astro';
 
 const year = new Date().getFullYear();
@@ -51,11 +51,23 @@ const groups = Object.entries(FOOTER_LINKS);
     <div
       class="mt-12 flex flex-col gap-4 border-t border-border-subtle pt-6 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between"
     >
-      <p>© {year} {SITE.name}. All rights reserved.</p>
+      <div>
+        <p>© {year} {SITE.name}. All rights reserved.</p>
+        <ul class="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+          {LEGAL_LINKS.map((link) => (
+            <li>
+              <a href={link.href} class="transition-colors hover:text-accent">{link.label}</a>
+            </li>
+          ))}
+        </ul>
+      </div>
       <p class="max-w-xl text-xs leading-relaxed">
-        Some links on this site are affiliate links. They never influence a rating — our
+        PageTools is funded by display advertising and by affiliate links, which are marked
+        wherever they appear. Neither has ever influenced a rating — our
         <a href="/about#methodology" class="underline underline-offset-2 hover:text-accent">methodology</a>
-        explains exactly how we score tools.
+        explains how we score, and our
+        <a href="/disclosure" class="underline underline-offset-2 hover:text-accent">disclosure</a>
+        explains how we are paid.
       </p>
     </div>
   </div>

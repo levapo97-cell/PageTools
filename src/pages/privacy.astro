@@ -1,0 +1,171 @@
+---
+import LegalLayout from '@/layouts/LegalLayout.astro';
+import { SITE, LEGAL } from '@/consts';
+---
+
+<LegalLayout
+  title="Privacy policy"
+  description="What data PageTools collects, how advertising cookies work, which third parties are involved, and how to exercise your rights under GDPR and CCPA."
+  path="/privacy"
+  lead="We collect as little as we can get away with. This page explains exactly what that means, including the parts we do not control."
+>
+  <h2 id="who-we-are">Who we are</h2>
+  <p>
+    {SITE.name} ("we", "us") operates this website. For the purposes of the General Data
+    Protection Regulation (GDPR), the data controller is <strong>{LEGAL.entityName}</strong>,
+    established in {LEGAL.jurisdiction}.
+  </p>
+  <p>
+    Questions about this policy, or requests about your data, go to
+    <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a>. We answer every one.
+  </p>
+
+  <h2 id="what-we-collect">What we collect</h2>
+  <p>We collect three things, and only three.</p>
+
+  <h3>Information you give us deliberately</h3>
+  <p>
+    If you submit the contact form, we receive your name, email address, the reason you selected
+    and your message. If you subscribe to the newsletter, we receive your email address. We use
+    both only to reply to you or to send the newsletter you asked for, and we never sell, rent or
+    share either.
+  </p>
+  <p>
+    You can unsubscribe from the newsletter from any email we send. You can ask us to delete a
+    contact form submission at any time.
+  </p>
+
+  <h3>Technical information sent by your browser</h3>
+  <p>
+    Our host records standard server logs: IP address, user agent, requested URL, timestamp and
+    referrer. These exist to keep the site running and secure, are not used to build a profile of
+    you, and are retained for a limited period before being discarded.
+  </p>
+
+  <h3>Advertising and analytics data collected by third parties</h3>
+  <p>
+    This is the part worth reading carefully, because it is the part we do not control. See below.
+  </p>
+
+  <h2 id="advertising">Advertising and cookies</h2>
+  <p>
+    This site is funded partly by display advertising served through <strong>Google AdSense</strong>.
+    Advertising is what keeps the reviews free to read and free of paid placement.
+  </p>
+  <ul>
+    <li>
+      Google and its partners use cookies and similar technologies to serve ads based on your
+      prior visits to this and other websites.
+    </li>
+    <li>
+      Google's use of advertising cookies enables it and its partners to serve ads to you based on
+      your visit to our site and/or other sites on the internet.
+    </li>
+    <li>
+      Third-party vendors, including Google, may place cookies in your browser. We do not have
+      access to the contents of those cookies and cannot read them.
+    </li>
+    <li>
+      You can opt out of personalised advertising by visiting
+      <a href="https://www.google.com/settings/ads" rel="noopener noreferrer nofollow" target="_blank">Google Ads Settings</a>.
+      You can opt out of a broader set of third-party vendors at
+      <a href="https://www.aboutads.info/choices/" rel="noopener noreferrer nofollow" target="_blank">aboutads.info/choices</a>
+      or <a href="https://www.youronlinechoices.com/" rel="noopener noreferrer nofollow" target="_blank">youronlinechoices.com</a>.
+    </li>
+    <li>
+      Google's own handling of this data is described in the
+      <a href="https://policies.google.com/technologies/partner-sites" rel="noopener noreferrer nofollow" target="_blank">Google Privacy &amp; Terms</a>
+      page for partner sites.
+    </li>
+  </ul>
+  <p>
+    Opting out of personalised advertising does not remove ads. It makes them less relevant, which
+    is a trade-off entirely yours to make.
+  </p>
+
+  <h3>Consent in the EEA, UK and Switzerland</h3>
+  <p>
+    If you are in the European Economic Area, the United Kingdom or Switzerland, you will be shown
+    a consent message before personalised advertising cookies are set. That message is delivered
+    by a Google-certified consent management platform. You can change or withdraw your choice at
+    any time through the link in that message, and we honour the result.
+  </p>
+
+  <h3>Cookies we set ourselves</h3>
+  <p>
+    Exactly one, and it is not a cookie. Your light/dark theme preference is stored in your
+    browser's <code>localStorage</code> under the key <code>pagetools-theme</code>. It never
+    leaves your device, is never transmitted to us, and exists only so the site does not flash
+    white at you on every page load. Clearing your browser storage removes it.
+  </p>
+
+  <h2 id="legal-basis">Legal basis for processing</h2>
+  <ul>
+    <li><strong>Consent</strong> — newsletter subscription and personalised advertising cookies.</li>
+    <li>
+      <strong>Legitimate interest</strong> — server logs for security and reliability, and
+      replying to a message you chose to send us.
+    </li>
+  </ul>
+
+  <h2 id="your-rights">Your rights</h2>
+  <p>Under GDPR, if you are in the EEA or UK, you have the right to:</p>
+  <ul>
+    <li>Access the personal data we hold about you</li>
+    <li>Have inaccurate data corrected</li>
+    <li>Have your data erased</li>
+    <li>Restrict or object to how we process it</li>
+    <li>Receive your data in a portable format</li>
+    <li>Withdraw consent at any time, without affecting processing already carried out</li>
+    <li>Lodge a complaint with your national supervisory authority</li>
+  </ul>
+  <p>
+    Under the California Consumer Privacy Act (CCPA), if you are a California resident, you have
+    the right to know what personal information is collected, to request its deletion, and to opt
+    out of its sale. <strong>We do not sell personal information</strong>, and we never have.
+  </p>
+  <p>
+    To exercise any of these, email <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a>.
+    We respond within 30 days and we do not require you to create an account to ask.
+  </p>
+
+  <h2 id="children">Children</h2>
+  <p>
+    This site is aimed at professional software developers and is not directed at children under
+    16. We do not knowingly collect personal data from children. If you believe a child has
+    provided us with personal data, contact us and we will delete it.
+  </p>
+
+  <h2 id="external-links">External links</h2>
+  <p>
+    Our reviews link to the tools we write about, sometimes through affiliate links (see our
+    <a href="/disclosure">advertising and affiliate disclosure</a>). Once you follow a link off
+    this site, you are subject to that site's privacy policy, not ours. We have no control over
+    and take no responsibility for the content or practices of third-party sites.
+  </p>
+
+  <h2 id="retention">Data retention</h2>
+  <ul>
+    <li><strong>Contact form messages</strong> — kept while the conversation is active, then deleted.</li>
+    <li><strong>Newsletter subscriptions</strong> — kept until you unsubscribe.</li>
+    <li><strong>Server logs</strong> — retained by our hosting provider for a limited period.</li>
+    <li>
+      <strong>Advertising cookies</strong> — set and expired by Google according to
+      <a href="https://policies.google.com/technologies/cookies" rel="noopener noreferrer nofollow" target="_blank">its own retention schedule</a>.
+    </li>
+  </ul>
+
+  <h2 id="changes">Changes to this policy</h2>
+  <p>
+    If we change this policy we update the effective date at the top of the page. Material changes
+    will also be announced in the newsletter. We will never reduce your rights without telling you.
+  </p>
+
+  <h2 id="contact">Contact</h2>
+  <p>
+    Privacy matters: <a href={`mailto:${LEGAL.privacyEmail}`}>{LEGAL.privacyEmail}</a><br />
+    Everything else: <a href={`mailto:${SITE.email}`}>{SITE.email}</a> or the
+    <a href="/contact">contact form</a>.
+  </p>
+  <p>{LEGAL.entityName}, {LEGAL.address}, {LEGAL.jurisdiction}.</p>
+</LegalLayout>
