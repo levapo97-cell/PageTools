@@ -1,0 +1,28 @@
+---
+import RatingStars from './RatingStars.astro';
+
+interface Props {
+  verdict: string;
+  summary: string;
+  rating: number;
+}
+
+const { verdict, summary, rating } = Astro.props;
+---
+
+<aside
+  class="not-prose my-8 overflow-hidden rounded-[var(--radius-card)] border border-accent/30 bg-accent-soft/70"
+>
+  <div class="flex flex-col gap-4 p-6 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p class="text-xs font-bold uppercase tracking-[0.18em] text-accent">Our verdict</p>
+      <p class="mt-2 text-xl font-extrabold tracking-tight text-balance text-ink">{verdict}</p>
+      <p class="mt-2 max-w-2xl text-sm leading-relaxed text-ink-muted">{summary}</p>
+    </div>
+    <div class="shrink-0 rounded-xl bg-surface-raised px-4 py-3 text-center shadow-sm">
+      <p class="text-3xl font-extrabold leading-none text-accent">{rating.toFixed(1)}</p>
+      <div class="mt-1.5"><RatingStars rating={rating} size="sm" showValue={false} /></div>
+      <p class="mt-1 text-[0.65rem] uppercase tracking-wider text-ink-muted">Overall</p>
+    </div>
+  </div>
+</aside>

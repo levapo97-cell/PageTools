@@ -1,0 +1,21 @@
+---
+interface Props {
+  variant?: 'brand' | 'neutral' | 'success' | 'warning';
+  class?: string;
+}
+
+const { variant = 'neutral', class: className = '' } = Astro.props;
+
+const variants = {
+  brand: 'bg-accent-soft text-accent',
+  neutral: 'bg-surface-muted text-ink-muted',
+  success: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400',
+  warning: 'bg-amber-500/10 text-amber-600 dark:text-amber-400',
+} as const;
+---
+
+<span
+  class={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold tracking-wide ${variants[variant]} ${className}`}
+>
+  <slot />
+</span>

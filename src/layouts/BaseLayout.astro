@@ -1,0 +1,50 @@
+---
+import Head from '@/components/Head.astro';
+import Navbar from '@/components/Navbar.astro';
+import Footer from '@/components/Footer.astro';
+import JsonLd from '@/components/JsonLd.astro';
+import { graph, organizationSchema, websiteSchema } from '@/lib/schema';
+import { SITE } from '@/consts';
+import '@/styles/global.css';
+
+interface Props {
+  title: string;
+  description?: string;
+  image?: string;
+  type?: 'website' | 'article';
+  publishedDate?: Date;
+  modifiedDate?: Date;
+  author?: string;
+  keywords?: string[];
+  noindex?: boolean;
+  /** Extra Schema.org nodes merged into the page-level @graph. */
+  schema?: Record<string, unknown>[];
+}
+
+const { schema = [], ...head } = Astro.props;
+const pageGraph = graph(organizationSchema(), websiteSchema(), ...schema);
+---
+
+<!doctype html>
+<html lang={SITE.locale} class="scroll-pt-24">
+  <head>
+    <Head {...head} />
+    <JsonLd schema={pageGraph} />
+  </head>
+  <body class="flex min-h-dvh flex-col">
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-brand-600 focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-white"
+    >
+      Skip to content
+    </a>
+
+    <Navbar />
+
+    <main id="main" class="flex-1">
+      <slot />
+    </main>
+
+    <Footer />
+  </body>
+</html>

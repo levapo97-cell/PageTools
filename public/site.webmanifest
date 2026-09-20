@@ -1,0 +1,17 @@
+{
+  "name": "PageTools",
+  "short_name": "PageTools",
+  "description": "Independent reviews and head-to-head comparisons of SaaS and developer tools.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0066cc",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

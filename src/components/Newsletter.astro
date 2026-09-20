@@ -1,0 +1,91 @@
+---
+import { FORMS } from '@/consts';
+
+interface Props {
+  compact?: boolean;
+}
+
+const { compact = false } = Astro.props;
+const endpoint = FORMS.newsletterEndpoint;
+---
+
+<form
+  class={compact ? 'w-full' : 'w-full max-w-md'}
+  action={endpoint || undefined}
+  method="post"
+  data-newsletter
+  novalidate
+>
+  <label for="newsletter-email" class="mb-2 block text-sm font-semibold text-ink">
+    One email a month. New comparisons, no spam.
+  </label>
+  <div class="flex flex-col gap-2 sm:flex-row">
+    <input
+      id="newsletter-email"
+      name="email"
+      type="email"
+      required
+      autocomplete="email"
+      placeholder="you@company.com"
+      class="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface px-3.5 py-2.5 text-sm text-ink placeholder:text-ink-muted/70 focus:border-accent focus:outline-none"
+    />
+    <button
+      type="submit"
+      class="shrink-0 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-800 dark:bg-brand-500 dark:hover:bg-brand-400 dark:hover:text-brand-950"
+    >
+      Subscribe
+    </button>
+  </div>
+  <p class="mt-2 text-xs text-ink-muted" data-newsletter-status>
+    We never share your address. Unsubscribe in one click.
+  </p>
+</form>
+
+<script>
+  function setUp() {
+    document.querySelectorAll<HTMLFormElement>('form[data-newsletter]').forEach((form) => {
+      if (form.dataset.bound === 'true') return;
+      form.dataset.bound = 'true';
+
+      const status = form.querySelector<HTMLElement>('[data-newsletter-status]');
+
+      form.addEventListener('submit', async (event) => {
+        const input = form.querySelector<HTMLInputElement>('input[name="email"]');
+        if (!input?.checkValidity()) {
+          event.preventDefault();
+          if (status) status.textContent = 'Please enter a valid email address.';
+          return;
+        }
+
+        // With no endpoint configured, keep the user on the page and say so
+        // rather than posting to nowhere.
+        if (!form.getAttribute('action')) {
+          event.preventDefault();
+          if (status) {
+            status.textContent =
+              'Newsletter endpoint not configured yet — set PUBLIC_NEWSLETTER_ENDPOINT.';
+          }
+          return;
+        }
+
+        event.preventDefault();
+        if (status) status.textContent = 'Subscribing…';
+        try {
+          const response = await fetch(form.action, {
+            method: 'POST',
+            headers: { Accept: 'application/json' },
+            body: new FormData(form),
+          });
+          if (!response.ok) throw new Error(String(response.status));
+          form.reset();
+          if (status) status.textContent = 'Check your inbox to confirm your subscription.';
+        } catch {
+          if (status) status.textContent = 'Something went wrong. Please try again in a moment.';
+        }
+      });
+    });
+  }
+
+  setUp();
+  document.addEventListener('astro:after-swap', setUp);
+</script>

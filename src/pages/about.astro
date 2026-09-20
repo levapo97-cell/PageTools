@@ -1,0 +1,191 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import SectionHeading from '@/components/SectionHeading.astro';
+import CTAButton from '@/components/CTAButton.astro';
+import { breadcrumbSchema } from '@/lib/schema';
+import { SITE } from '@/consts';
+
+const title = 'About PageTools';
+const description =
+  'Who writes PageTools, how we test SaaS and developer tools, how the scoring rubric works, and how we make money without selling rankings.';
+
+const crumbs = [
+  { href: '/', label: 'Home' },
+  { label: 'About' },
+];
+
+const rubric = [
+  {
+    weight: '30%',
+    criterion: 'Developer experience',
+    detail:
+      'Time from zero to a working deployment, quality of the error messages, how far the happy path carries you before you need the docs.',
+  },
+  {
+    weight: '25%',
+    criterion: 'Total cost of ownership',
+    detail:
+      'List price plus the hidden line items: egress, seats, build minutes, the support plan you end up needing.',
+  },
+  {
+    weight: '20%',
+    criterion: 'Operational maturity',
+    detail:
+      'Observability, rollback story, incident history, and how the tool behaves at 3am when something is already on fire.',
+  },
+  {
+    weight: '15%',
+    criterion: 'Ecosystem and lock-in',
+    detail:
+      'How much of your configuration is portable, how alive the community is, and what an exit migration actually costs.',
+  },
+  {
+    weight: '10%',
+    criterion: 'Trajectory',
+    detail:
+      'Release cadence, transparency of the roadmap, and whether the last two years suggest the next two.',
+  },
+];
+
+const steps = [
+  'Pick a decision teams are actively arguing about — not whatever launched last week.',
+  'Port one real project onto both options. Same app, same team, same deadline.',
+  'Run it for at least four weeks, including a deploy under pressure.',
+  'Score against the rubric, write the numbers down before writing the prose.',
+  'Send the draft to both vendors for factual corrections. They cannot change a score.',
+  'Publish, then revisit whenever either tool ships something that would move the result.',
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  schema={[
+    breadcrumbSchema(crumbs),
+    {
+      '@type': 'AboutPage',
+      name: title,
+      description,
+      url: new URL('/about', Astro.site).toString(),
+    },
+  ]}
+>
+  <div class="container-page py-10 lg:py-14">
+    <Breadcrumbs items={crumbs} />
+
+    <header class="mt-8 max-w-3xl">
+      <h1 class="text-4xl font-extrabold tracking-tight text-balance text-ink sm:text-5xl">
+        We buy the tools, run the migrations, and write down what happened.
+      </h1>
+      <p class="mt-5 text-lg leading-relaxed text-pretty text-ink-muted">
+        PageTools exists because tool comparisons on the open web are mostly rewritten pricing
+        pages. We are a small group of platform and product engineers who kept building the same
+        spreadsheet for every stack decision, and eventually decided to publish it.
+      </p>
+    </header>
+
+    <section class="mt-16 grid gap-6 md:grid-cols-3">
+      {[
+        { stat: '4+ weeks', label: 'Minimum time we live with a tool before scoring it' },
+        { stat: '0', label: 'Rankings that have ever been paid for' },
+        { stat: '100%', label: 'Of reviews disclose their affiliate relationships' },
+      ].map((item) => (
+        <div class="card-surface p-6">
+          <p class="text-3xl font-extrabold tracking-tight text-accent">{item.stat}</p>
+          <p class="mt-2 text-sm leading-relaxed text-ink-muted">{item.label}</p>
+        </div>
+      ))}
+    </section>
+
+    <section id="methodology" class="mt-20 scroll-mt-24">
+      <SectionHeading
+        eyebrow="Methodology"
+        title="How a PageTools review gets made"
+        description="Same six steps every time. If a review skipped one, it says so at the top."
+      />
+
+      <ol class="mt-8 space-y-4">
+        {steps.map((step, index) => (
+          <li class="card-surface flex gap-4 p-5">
+            <span
+              class="grid size-8 shrink-0 place-items-center rounded-lg bg-accent-soft text-sm font-extrabold text-accent"
+              aria-hidden="true"
+            >
+              {index + 1}
+            </span>
+            <p class="text-sm leading-relaxed text-ink-muted">{step}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+
+    <section class="mt-20">
+      <SectionHeading
+        eyebrow="Scoring"
+        title="The rubric, with its weights"
+        description="Every score on this site is a weighted average of these five criteria. Nothing else feeds into it."
+      />
+
+      <div class="mt-8 overflow-x-auto rounded-[var(--radius-card)] border border-border-subtle">
+        <table class="w-full min-w-[36rem] border-collapse text-left text-sm">
+          <thead>
+            <tr class="bg-surface-muted">
+              <th scope="col" class="px-4 py-3.5 font-bold text-ink">Weight</th>
+              <th scope="col" class="px-4 py-3.5 font-bold text-ink">Criterion</th>
+              <th scope="col" class="px-4 py-3.5 font-bold text-ink">What we look at</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rubric.map((row) => (
+              <tr class="border-t border-border-subtle align-top">
+                <td class="px-4 py-3.5 font-extrabold text-accent">{row.weight}</td>
+                <th scope="row" class="px-4 py-3.5 font-semibold text-ink">{row.criterion}</th>
+                <td class="px-4 py-3.5 text-ink-muted">{row.detail}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="mt-20 max-w-3xl">
+      <SectionHeading eyebrow="Funding" title="How PageTools pays for itself" />
+      <div class="prose prose-pagetools mt-6 max-w-none">
+        <p>
+          Two sources, both disclosed. <strong>Display advertising</strong> through Google AdSense,
+          which is served by Google and has no connection to our editorial team — we cannot see who
+          is buying, and advertisers cannot see what we are writing. And
+          <strong>affiliate links</strong> on a minority of the tools we cover, marked as such
+          wherever they appear.
+        </p>
+        <p>
+          What we do not do: sponsored reviews, paid placement in a comparison table, "featured
+          partner" slots, or rewriting a score after a vendor complains. A vendor gets exactly one
+          privilege — a factual-accuracy pass on the draft, with no say over the conclusion.
+        </p>
+        <p>
+          If you ever see something on this site that looks like it breaks that,
+          <a href="/contact">tell us</a> and we will publish the correction.
+        </p>
+      </div>
+    </section>
+
+    <section
+      class="mt-20 rounded-[var(--radius-card)] border border-accent/30 bg-accent-soft/60 p-8 text-center"
+    >
+      <h2 class="text-2xl font-extrabold tracking-tight text-balance text-ink">
+        Got a stack decision we should settle?
+      </h2>
+      <p class="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-ink-muted">
+        Tell us what you are comparing. The requests we hear most become the next review.
+      </p>
+      <div class="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
+        <CTAButton href="/contact" event="about_cta_contact">Suggest a comparison</CTAButton>
+        <CTAButton href={`mailto:${SITE.email}`} variant="secondary" event="about_cta_email">
+          Email the team
+        </CTAButton>
+      </div>
+    </section>
+  </div>
+</BaseLayout>

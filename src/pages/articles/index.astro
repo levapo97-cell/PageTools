@@ -1,0 +1,79 @@
+---
+import BaseLayout from '@/layouts/BaseLayout.astro';
+import ArticleCard from '@/components/ArticleCard.astro';
+import SectionHeading from '@/components/SectionHeading.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import Newsletter from '@/components/Newsletter.astro';
+import { getArticles } from '@/lib/content';
+import { collectionPageSchema, breadcrumbSchema } from '@/lib/schema';
+
+const articles = await getArticles();
+const [lead, ...rest] = articles;
+
+const title = 'Articles — guides, deep dives and field notes';
+const description =
+  'Long-form writing from the PageTools desk: migration diaries, cost breakdowns, and the operational lessons behind our tool comparisons.';
+
+const crumbs = [
+  { href: '/', label: 'Home' },
+  { label: 'Articles' },
+];
+---
+
+<BaseLayout
+  title={title}
+  description={description}
+  keywords={['devops articles', 'developer tooling guides', 'engineering blog']}
+  schema={[
+    collectionPageSchema({
+      title,
+      description,
+      path: '/articles',
+      items: articles.map((article) => ({
+        title: article.data.title,
+        path: `/articles/${article.id}`,
+      })),
+    }),
+    breadcrumbSchema(crumbs),
+  ]}
+>
+  <div class="container-page py-10 lg:py-14">
+    <Breadcrumbs items={crumbs} />
+
+    <div class="mt-8">
+      <SectionHeading
+        eyebrow={`${articles.length} articles`}
+        title="Articles"
+        description={description}
+      />
+    </div>
+
+    {lead && (
+      <div class="mt-10 grid gap-6 lg:grid-cols-2">
+        <ArticleCard article={lead} />
+        <div class="card-surface flex flex-col justify-center p-6 sm:p-8">
+          <h2 class="text-lg font-bold text-ink">Never miss a deep dive</h2>
+          <p class="mt-1.5 text-sm leading-relaxed text-ink-muted">
+            We publish when we have something worth saying — roughly once a month.
+          </p>
+          <div class="mt-5"><Newsletter /></div>
+        </div>
+      </div>
+    )}
+
+    <AdSlot slot="displayHorizontal" format="horizontal" />
+
+    {rest.length > 0 && (
+      <div class="mt-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {rest.map((article) => (
+          <ArticleCard article={article} />
+        ))}
+      </div>
+    )}
+
+    {articles.length === 0 && (
+      <p class="mt-12 text-ink-muted">No articles published yet. Check back shortly.</p>
+    )}
+  </div>
+</BaseLayout>

@@ -1,0 +1,46 @@
+---
+import { Image } from 'astro:assets';
+import type { Article } from '@/lib/content';
+import { formatDate, readingTime } from '@/lib/format';
+import Badge from './Badge.astro';
+
+interface Props {
+  article: Article;
+}
+
+const { article } = Astro.props;
+const { title, description, category, pubDate, author, image, imageAlt } = article.data;
+const href = `/articles/${article.id}`;
+const minutes = readingTime(article.body);
+---
+
+<article
+  class="group card-surface flex flex-col overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[var(--shadow-card-hover)]"
+>
+  <a href={href} class="flex h-full flex-col focus-visible:outline-none">
+    {image ? (
+      <Image src={image} alt={imageAlt ?? title} widths={[400, 800]} class="aspect-16/9 w-full object-cover" />
+    ) : (
+      <div class="aspect-16/9 bg-gradient-to-br from-surface-muted to-accent-soft" aria-hidden="true">
+        <div class="h-full w-full opacity-40 hero-grid"></div>
+      </div>
+    )}
+
+    <div class="flex flex-1 flex-col p-5">
+      <Badge variant="neutral">{category}</Badge>
+      <h3
+        class="mt-3 text-lg font-bold leading-snug text-balance text-ink transition-colors group-hover:text-accent"
+      >
+        {title}
+      </h3>
+      <p class="mt-2 line-clamp-3 flex-1 text-sm leading-relaxed text-ink-muted">{description}</p>
+      <div class="mt-4 flex items-center gap-2 border-t border-border-subtle pt-4 text-xs text-ink-muted">
+        <span>{author}</span>
+        <span aria-hidden="true">·</span>
+        <time datetime={pubDate.toISOString()}>{formatDate(pubDate)}</time>
+        <span aria-hidden="true">·</span>
+        <span>{minutes} min read</span>
+      </div>
+    </div>
+  </a>
+</article>

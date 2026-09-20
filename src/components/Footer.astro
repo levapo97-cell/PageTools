@@ -1,0 +1,62 @@
+---
+import { SITE, FOOTER_LINKS } from '@/consts';
+import Newsletter from './Newsletter.astro';
+
+const year = new Date().getFullYear();
+const groups = Object.entries(FOOTER_LINKS);
+---
+
+<footer class="mt-24 border-t border-border-subtle bg-surface-muted">
+  <div class="container-page py-14">
+    <div class="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1.6fr]">
+      <div>
+        <a href="/" class="flex items-center gap-2.5 font-extrabold tracking-tight">
+          <span
+            class="grid size-8 place-items-center rounded-lg bg-brand-600 text-white dark:bg-brand-500"
+            aria-hidden="true"
+          >
+            <svg class="size-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M4 7h16M4 12h10M4 17h7"></path>
+              <path d="m16 15 2.5 2.5L23 13"></path>
+            </svg>
+          </span>
+          <span class="text-lg text-ink">Page<span class="text-accent">Tools</span></span>
+        </a>
+        <p class="mt-4 max-w-xs text-sm leading-relaxed text-ink-muted">{SITE.description}</p>
+      </div>
+
+      {groups.map(([group, links]) => (
+        <nav aria-label={group}>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-ink">{group}</h2>
+          <ul class="mt-4 space-y-2.5">
+            {links.map((link) => (
+              <li>
+                <a href={link.href} class="text-sm text-ink-muted transition-colors hover:text-accent">
+                  {link.label}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      ))}
+
+      <div>
+        <h2 class="text-xs font-bold uppercase tracking-wider text-ink">Newsletter</h2>
+        <div class="mt-4">
+          <Newsletter compact />
+        </div>
+      </div>
+    </div>
+
+    <div
+      class="mt-12 flex flex-col gap-4 border-t border-border-subtle pt-6 text-sm text-ink-muted sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p>© {year} {SITE.name}. All rights reserved.</p>
+      <p class="max-w-xl text-xs leading-relaxed">
+        Some links on this site are affiliate links. They never influence a rating — our
+        <a href="/about#methodology" class="underline underline-offset-2 hover:text-accent">methodology</a>
+        explains exactly how we score tools.
+      </p>
+    </div>
+  </div>
+</footer>
