@@ -1,0 +1,213 @@
+---
+title: Branches, merges and the commit graph
+description: >-
+  Branching, merging and rebasing explained as what they are — operations on a directed graph of
+  snapshots. With that picture, choosing between merge and rebase becomes obvious.
+order: 3
+pubDate: 2026-09-20
+tags: [git, branching, merge, rebase]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Chapter one established that a commit is a snapshot with pointers to its parents. That makes your
+history a **directed acyclic graph**, and every branching operation is a manipulation of it.
+
+## The graph
+
+Start with a linear history. Each letter is a commit; arrows point to parents.
+
+```
+A ── B ── C          ← main
+```
+
+Create a branch. Nothing is copied; a new pointer is written:
+
+```
+A ── B ── C          ← main, feature
+```
+
+Commit twice on `feature`:
+
+```
+A ── B ── C          ← main
+           ╲
+            D ── E   ← feature
+```
+
+Meanwhile someone commits to `main`:
+
+```
+A ── B ── C ── F     ← main
+           ╲
+            D ── E   ← feature
+```
+
+The branches have **diverged**. Everything that follows is about how to bring them back together.
+
+## Fast-forward: no merge at all
+
+If `main` has not moved, merging `feature` into it is just moving a pointer:
+
+```
+before:  A ── B ── C          ← main
+                    ╲
+                     D ── E   ← feature
+
+after:   A ── B ── C ── D ── E   ← main, feature
+```
+
+```bash
+git switch main
+git merge feature      # Fast-forward
+```
+
+No merge commit, no new history. Git prints `Fast-forward` and you are done.
+
+## Merge: preserve what happened
+
+When both have moved, `git merge` creates a commit with **two parents**:
+
+```
+A ── B ── C ── F ────── M    ← main
+           ╲           ╱
+            D ── E ───╯      ← feature
+```
+
+```bash
+git switch main
+git merge feature
+```
+
+`M` records the fact that two lines of development existed and were joined. The history is
+accurate but not linear.
+
+## Rebase: rewrite for a clean line
+
+`git rebase` takes your commits and re-creates them on a new base:
+
+```
+before:  A ── B ── C ── F      ← main
+                   ╲
+                    D ── E     ← feature
+
+after:   A ── B ── C ── F      ← main
+                         ╲
+                          D' ── E'   ← feature
+```
+
+```bash
+git switch feature
+git rebase main
+```
+
+<Callout type="note" title="D' is not D">
+  The apostrophes matter. Rebase does not move commits — it creates **new** commits with the same
+  changes and different parents, so they have different hashes. The originals still exist in the
+  reflog until garbage collection.
+</Callout>
+
+Then merging is a fast-forward, and the history is a straight line.
+
+## Choosing between them
+
+The rule that works in practice:
+
+<Callout type="danger" title="Never rebase a branch other people have pulled">
+  Rebasing rewrites history. If a colleague has commits `D` and `E` and you replace them with
+  `D'` and `E'`, their next pull produces duplicated commits and a mess that someone has to untangle
+  by hand. Rebase **your own unpushed work**. Merge everything else.
+</Callout>
+
+Beyond that it is a team preference:
+
+| | Merge | Rebase |
+|---|---|---|
+| History | Accurate, shows real topology | Linear, easier to read |
+| `git log` | Interleaved, branchy | Sequential |
+| `git bisect` | Harder — merge commits complicate it | Easier |
+| Conflicts | Resolved once | Possibly once per commit |
+| Shared branches | Safe | Dangerous |
+
+A common, sensible policy: **rebase your feature branch onto main before opening a PR** (clean,
+linear, easy to review), then **merge the PR** (the merge commit records when it landed).
+
+## Resolving a conflict
+
+A conflict happens when both sides changed the same region. Git marks it and stops:
+
+```
+<<<<<<< HEAD
+const timeout = 5000;
+=======
+const timeout = 30000;
+>>>>>>> feature
+```
+
+`HEAD` is where you are; below the `=======` is what is coming in. Edit the file into the state
+you actually want — deleting all three markers — then:
+
+```bash
+git add src/config.js
+git merge --continue        # or: git rebase --continue
+```
+
+To abandon and get back to where you started:
+
+```bash
+git merge --abort
+git rebase --abort
+```
+
+<Callout type="tip" title="Understand the conflict before resolving it">
+  ```bash
+  git log --merge -p src/config.js
+  ```
+  This shows only the commits touching the conflicted file from both sides. Picking a side without
+  reading why it changed is how conflicts get "resolved" into bugs.
+</Callout>
+
+## Remote branches are a local cache
+
+`origin/main` is **not** the branch on the server. It is your local record of where `main` was on
+the server the last time you communicated with it.
+
+```bash
+git fetch              # update origin/* — changes nothing in your working tree
+git status             # "Your branch is behind origin/main by 3 commits"
+git merge origin/main  # now actually integrate
+```
+
+`git pull` is `git fetch` followed by `git merge` (or `git rebase`, with the config from chapter
+two). Splitting them is often better: fetch, look at what arrived, then decide.
+
+## Interactive rebase: editing your own history
+
+Before sharing a branch, clean it up:
+
+```bash
+git rebase -i main
+```
+
+You get an editable list:
+
+```
+pick a1b2c3d Add user model
+pick e4f5g6h fix typo
+pick i7j8k9l WIP
+pick m0n1o2p Actually implement login
+```
+
+Change the verbs:
+
+- `pick` — keep as is
+- `reword` — change the message
+- `squash` — fold into the previous commit, combining messages
+- `fixup` — fold into the previous commit, discard this message
+- `drop` — delete the commit
+- `edit` — stop here so you can amend it
+
+Turning four messy commits into one clean one makes the PR reviewable and the history bisectable.
+This is the single highest-value Git skill beyond the basics.
+
+Next: the commands this all turns into, day to day.

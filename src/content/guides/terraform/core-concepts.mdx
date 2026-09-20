@@ -1,0 +1,256 @@
+---
+title: State, resources and the dependency graph
+description: >-
+  The five concepts Terraform is built from — providers, resources, state, variables and modules
+  — plus the dependency graph that decides the order everything happens in.
+order: 3
+pubDate: 2026-09-20
+tags: [terraform, state, hcl, modules]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Five concepts. Everything in Terraform is one of them.
+
+## 1. Providers — the API translators
+
+A provider is a plugin that knows how to talk to one API. `hashicorp/aws` knows AWS; `cloudflare/cloudflare`
+knows Cloudflare.
+
+```hcl
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+```
+
+You can configure the same provider twice with aliases, which is how you manage two regions or
+two accounts from one configuration:
+
+```hcl
+provider "aws" {
+  alias  = "eu"
+  region = "eu-west-1"
+}
+
+resource "aws_s3_bucket" "eu_backup" {
+  provider = aws.eu
+  bucket   = "myapp-backup-eu"
+}
+```
+
+## 2. Resources and data sources
+
+A **resource** is something Terraform creates and owns:
+
+```hcl
+resource "aws_s3_bucket" "uploads" {
+  bucket = "myapp-uploads"
+}
+```
+
+`aws_s3_bucket` is the type, `uploads` is your local name. Together they form the **address**
+`aws_s3_bucket.uploads`, which is how you refer to it everywhere else — in state, in plan output,
+and in other resources.
+
+A **data source** reads something Terraform does not own:
+
+```hcl
+data "aws_vpc" "default" {
+  default = true
+}
+
+resource "aws_subnet" "app" {
+  vpc_id     = data.aws_vpc.default.id
+  cidr_block = "172.31.100.0/24"
+}
+```
+
+Resources get created and destroyed. Data sources only ever read.
+
+## 3. State — the mapping to reality
+
+The state file maps your addresses to real resource IDs:
+
+```json
+{
+  "resources": [{
+    "type": "aws_s3_bucket",
+    "name": "uploads",
+    "instances": [{
+      "attributes": { "id": "myapp-uploads", "arn": "arn:aws:s3:::myapp-uploads" }
+    }]
+  }]
+}
+```
+
+Without it, Terraform cannot know that `aws_s3_bucket.uploads` already exists — it would try to
+create it again.
+
+<Callout type="danger" title="State contains secrets in plaintext">
+  Database passwords, generated keys and certificate private keys all appear in the state file in
+  clear text, regardless of how carefully you passed them in. This is the reason state must never
+  be committed to Git and must be encrypted at rest.
+</Callout>
+
+### Remote state, and why local state does not survive contact with a team
+
+Local state is a file on one laptop. Two people applying at the same time produce two divergent
+versions of reality. Move it to a backend that supports locking:
+
+```hcl
+terraform {
+  backend "s3" {
+    bucket       = "myorg-terraform-state"
+    key          = "prod/app/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+```
+
+Now state is shared, encrypted, versioned by S3, and locked so two applies cannot collide.
+
+<Callout type="warning" title="Do this before the team grows, not after">
+  Migrating state later is possible (`terraform init -migrate-state`) but it is a change you make
+  under pressure, usually after the first conflict. Set up the backend on day one.
+</Callout>
+
+## 4. Variables, locals and outputs
+
+**Variables** are inputs:
+
+```hcl
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "environment must be dev, staging or prod."
+  }
+}
+
+variable "instance_count" {
+  type    = number
+  default = 2
+}
+```
+
+Set them by file (`terraform.tfvars`), by flag (`-var`), or by environment variable
+(`TF_VAR_environment=prod`).
+
+**Locals** are computed values you use more than once:
+
+```hcl
+locals {
+  name_prefix = "${var.project}-${var.environment}"
+
+  common_tags = {
+    Project     = var.project
+    Environment = var.environment
+    ManagedBy   = "terraform"
+  }
+}
+```
+
+**Outputs** expose values to you, and to other configurations:
+
+```hcl
+output "bucket_arn" {
+  description = "ARN of the uploads bucket"
+  value       = aws_s3_bucket.uploads.arn
+}
+
+output "db_password" {
+  value     = random_password.db.result
+  sensitive = true      # redacted from CLI output
+}
+```
+
+<Callout type="note" title="sensitive hides it from the terminal only">
+  `sensitive = true` stops the value being printed. It is still stored in plaintext in the state
+  file. The two are unrelated protections.
+</Callout>
+
+## 5. Modules — reusable groups of resources
+
+A module is a directory containing `.tf` files. Calling it:
+
+```hcl
+module "vpc" {
+  source  = "terraform-aws-modules/vpc/aws"
+  version = "5.13.0"
+
+  name = local.name_prefix
+  cidr = "10.0.0.0/16"
+
+  azs             = ["us-east-1a", "us-east-1b"]
+  private_subnets = ["10.0.1.0/24", "10.0.2.0/24"]
+  public_subnets  = ["10.0.101.0/24", "10.0.102.0/24"]
+
+  enable_nat_gateway = true
+  tags               = local.common_tags
+}
+```
+
+Reference its outputs with `module.vpc.vpc_id`. Always pin `version` on a public module — it is a
+dependency like any other.
+
+## The dependency graph
+
+Terraform never runs your file top to bottom. It builds a graph from the references between
+resources and executes it in dependency order, in parallel where it can.
+
+```hcl
+resource "aws_vpc" "main" {
+  cidr_block = "10.0.0.0/16"
+}
+
+resource "aws_subnet" "app" {
+  vpc_id = aws_vpc.main.id     # ← creates the dependency
+}
+```
+
+Because `aws_subnet.app` references `aws_vpc.main.id`, the VPC is created first. You never
+specify order; you express references and the order follows.
+
+When a dependency exists but there is no reference — an IAM policy that must exist before a
+service starts using it, say — declare it explicitly:
+
+```hcl
+resource "aws_instance" "app" {
+  depends_on = [aws_iam_role_policy.app]
+}
+```
+
+<Callout type="tip" title="See the graph">
+  ```bash
+  terraform graph | dot -Tsvg > graph.svg
+  ```
+  Useful when a plan changes something you did not expect — the reason is almost always a
+  dependency edge you had not noticed.
+</Callout>
+
+## The lifecycle of an apply
+
+```
+terraform init     → download providers, configure the backend
+terraform plan     → read state, refresh reality, compute the diff
+terraform apply    → execute the graph, update state
+terraform destroy  → reverse the graph, tear everything down
+```
+
+`plan` mutates nothing. `apply` re-plans first, then asks for confirmation. That confirmation
+prompt is the last checkpoint before something irreversible.
+
+Next: building real infrastructure with all of this.

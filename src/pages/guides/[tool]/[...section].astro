@@ -1,0 +1,27 @@
+---
+import { render } from 'astro:content';
+import GuideLayout from '@/layouts/GuideLayout.astro';
+import { getGuides, sectionSlugOf, type Guide, type GuideSection } from '@/lib/content';
+
+export async function getStaticPaths() {
+  const guides = await getGuides();
+  return guides.flatMap((guide) =>
+    guide.sections.map((section) => ({
+      params: { tool: guide.tool.slug, section: sectionSlugOf(section) },
+      props: { guide, section },
+    })),
+  );
+}
+
+interface Props {
+  guide: Guide;
+  section: GuideSection;
+}
+
+const { guide, section } = Astro.props;
+const { Content, headings } = await render(section);
+---
+
+<GuideLayout guide={guide} section={section} headings={headings}>
+  <Content />
+</GuideLayout>

@@ -1,0 +1,184 @@
+---
+title: When it breaks — a diagnostic path
+description: >-
+  A repeatable order for debugging Docker problems, and what the most common error messages
+  actually mean, rather than what they appear to say.
+order: 7
+pubDate: 2026-09-20
+tags: [docker, troubleshooting, debugging]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Debugging containers is easier than it feels, because there are only a few places a problem can
+be. What makes it hard is that Docker's error messages often describe the symptom rather than the
+cause.
+
+## The order to check things
+
+Work top to bottom. Each step narrows the surface.
+
+**1. Is it even running?**
+
+```bash
+docker ps -a
+```
+
+Look at `STATUS`. `Exited (0)` means the process finished normally — usually your `CMD` was a
+command that ends rather than a server. `Exited (1)` means it crashed. `Restarting` means it is
+crash-looping.
+
+**2. What did it say on the way out?**
+
+```bash
+docker logs api
+docker logs --tail 50 --timestamps api
+```
+
+The answer is in here far more often than people expect. A crash-looping container has written
+the same stack trace fifty times.
+
+**3. Does the configuration match what you think?**
+
+```bash
+docker inspect api --format '{{json .Config.Env}}' | python3 -m json.tool
+docker inspect api --format '{{json .Mounts}}'     | python3 -m json.tool
+docker inspect api --format '{{json .NetworkSettings.Networks}}' | python3 -m json.tool
+```
+
+A surprising share of "it doesn't work" is an environment variable that is empty because a `.env`
+file was not where you thought.
+
+**4. Can you reproduce it by hand?**
+
+```bash
+docker run --rm -it --entrypoint sh myapp:latest
+```
+
+This drops you into the image with its entrypoint bypassed. You can now check whether the files
+are where you expect, run the start command manually and read the real error.
+
+## Errors and what they actually mean
+
+### `Cannot connect to the Docker daemon`
+
+The CLI cannot reach the daemon. Either it is not running, or you lack permission.
+
+```bash
+docker version          # only a Client block confirms it
+sudo systemctl status docker   # Linux
+```
+
+On Linux, `permission denied` on `/var/run/docker.sock` means you are not in the `docker` group,
+or you are but have not started a new session since being added.
+
+### `port is already allocated`
+
+Something else is on that host port.
+
+```bash
+lsof -i :3000                    # macOS / Linux
+docker ps --format '{{.Names}}\t{{.Ports}}'
+```
+
+Often a container you forgot from yesterday. Either stop it or publish on a different host port —
+`-p 3001:3000`.
+
+### `no such file or directory` when the file is clearly there
+
+Three usual causes, in order of likelihood:
+
+1. **`.dockerignore` excluded it.** The build context never received it. Check the file.
+2. **A wrong `WORKDIR`.** The path is relative to the working directory, not the repo root.
+3. **The binary needs glibc and you are on Alpine.** This one is misleading: the message names
+   the binary that *exists*, because the missing file is actually its dynamic linker. Use a
+   `-slim` Debian base instead of Alpine, or build a static binary.
+
+<Callout type="warning" title="The Alpine trap">
+  Alpine uses musl, not glibc. Anything with precompiled native bindings — some Node modules,
+  many Python wheels — may not have a musl build and will fail at runtime with an error that
+  points at the wrong thing. If a dependency behaves inexplicably on Alpine, try
+  `node:22-slim` before spending an afternoon on it.
+</Callout>
+
+### `exec format error`
+
+The image was built for a different CPU architecture. Common when an Apple Silicon Mac builds an
+`arm64` image that then runs on `amd64` servers.
+
+```bash
+docker buildx build --platform linux/amd64,linux/arm64 -t myapp:1.0 --push .
+```
+
+### Container exits immediately with code 0
+
+The main process ended. A web server that starts as a daemon and returns control will do this —
+in a container, the process must stay in the foreground. Look for a `-d`, `--daemon` or
+`--background` flag in your `CMD` and remove it.
+
+### Build is slow, or "it works but takes forever"
+
+```bash
+docker build --progress=plain . 2>&1 | grep CACHED
+```
+
+If nothing is cached, a layer near the top is being invalidated — usually a `COPY . .` above the
+dependency install. See mistake 2 in the previous chapter.
+
+On macOS, also check whether you are bind-mounting a large `node_modules`. That is the other
+common cause.
+
+### Out of disk space
+
+```bash
+docker system df
+docker builder prune
+```
+
+The build cache is very often the largest consumer and the least obvious one. It is safe to
+delete; the next build is just slower.
+
+## Getting a shell in an image with no shell
+
+Distroless and `scratch` images have no `sh`. Attach a debugging toolkit instead:
+
+```bash
+docker run -it --rm --pid container:api --network container:api \
+  --cap-add SYS_PTRACE nicolaka/netshoot
+```
+
+This puts a fully-equipped container in the same process and network namespaces as the broken
+one, so `ps`, `netstat`, `dig` and `curl` all see what it sees.
+
+## Networking, specifically
+
+```bash
+# From inside the container: can it resolve the other service?
+docker compose exec api getent hosts db
+
+# Is the other service actually listening?
+docker compose exec db netstat -tlnp
+
+# Are they on the same network?
+docker network inspect $(docker compose ls -q)_default
+```
+
+If DNS resolves but the connection is refused, the target service is bound to `127.0.0.1` inside
+its own container instead of `0.0.0.0`. That is the same mistake from chapter four, seen from the
+other side.
+
+<Callout type="tip" title="The question to ask first">
+  Almost every Docker problem resolves to one of four questions: is the process running (container),
+  does it have the files it needs (image), does it have the data it needs (volume), can it reach
+  what it needs (network). Identify which one you are in before you start trying flags.
+</Callout>
+
+## You have finished the guide
+
+You can now containerise an application, read a Dockerfile critically, run a multi-service stack
+locally, and debug the failures that actually happen. That is genuinely most of what day-to-day
+Docker use requires.
+
+Where to go next depends on what you need. If you are deploying to more than one machine, that is
+orchestration — the [Kubernetes guide](/guides/kubernetes) starts from the same place this one
+did, with the problem rather than the YAML.

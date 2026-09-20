@@ -1,0 +1,177 @@
+---
+title: The commands you will actually run
+description: >-
+  Docker has hundreds of flags and you need about fifteen. Here is the working set, plus the
+  Compose file that replaces most of them during development.
+order: 5
+pubDate: 2026-09-20
+tags: [docker, cli, compose, workflow]
+---
+
+import Callout from '@/components/Callout.astro';
+
+The Docker CLI is large. Daily use is not. This chapter is the subset that covers almost
+everything, followed by the tool that replaces most of it.
+
+## Inspecting what is running
+
+```bash
+docker ps                    # running containers
+docker ps -a                 # including stopped ones
+docker logs -f api           # follow logs, like tail -f
+docker logs --tail 100 api   # last 100 lines
+docker stats                 # live CPU/memory, like top
+```
+
+`docker ps -a` is the one people forget. A container that exited immediately does not appear in
+`docker ps`, so it looks like nothing happened — when in fact it started, crashed, and is sitting
+there with the answer in its logs.
+
+## Getting inside a container
+
+```bash
+docker exec -it api sh           # shell in a running container
+docker exec -it api env          # just print its environment
+docker run -it --rm alpine sh    # throwaway container to poke around
+```
+
+`-it` is `--interactive --tty`: keep stdin open and allocate a terminal. Without it you get no
+prompt and it looks like the command hung.
+
+<Callout type="tip" title="exec vs run">
+  `docker exec` runs a command **in a container that already exists**. `docker run` creates a new
+  one. If you `docker run` when you meant `docker exec`, you get a fresh container that knows
+  nothing about the state you were trying to inspect.
+</Callout>
+
+## Building and tagging
+
+```bash
+docker build -t myapp:1.4.0 .
+docker build -t myapp:1.4.0 -t myapp:latest .
+docker build --no-cache -t myapp:1.4.0 .
+docker build --progress=plain -t myapp:1.4.0 .   # full build output
+```
+
+`--progress=plain` is how you see what a `RUN` step actually printed. The default collapsed
+output hides it, which makes build failures much harder to read than they need to be.
+
+## Cleaning up
+
+Docker accumulates disk usage quietly. Check it:
+
+```bash
+docker system df
+```
+
+Then reclaim:
+
+```bash
+docker container prune      # stopped containers
+docker image prune          # dangling images
+docker image prune -a       # every image not used by a container
+docker builder prune        # the build cache — often the biggest offender
+docker system prune -a      # all of the above
+```
+
+<Callout type="danger" title="prune does not ask nicely about volumes">
+  `docker system prune -a --volumes` deletes **unused volumes**, and "unused" means "not currently
+  attached to a container". A stopped database container's volume can qualify. That is your data.
+  Never add `--volumes` unless you have just checked `docker volume ls` and know what is there.
+</Callout>
+
+## Compose: the thing you will actually use
+
+Running an app plus a database with raw `docker run` means creating a network, starting the
+database, waiting for it, starting the app with the right environment — every time. Compose
+declares it instead.
+
+`compose.yaml`:
+
+```yaml
+services:
+  api:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgres://app:secret@db:5432/app
+    depends_on:
+      db:
+        condition: service_healthy
+    develop:
+      watch:
+        - action: sync
+          path: ./src
+          target: /app/src
+        - action: rebuild
+          path: package.json
+
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: app
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
+```
+
+Note how chapter three's concepts show up: `db` is reachable at the hostname `db` because Compose
+puts both services on one network and names them after the service. `pgdata` is a named volume,
+so the database survives `docker compose down`.
+
+### The Compose commands
+
+```bash
+docker compose up -d           # start everything in the background
+docker compose up --build      # rebuild images first
+docker compose watch           # start with live sync (uses `develop:` above)
+docker compose ps              # what is running
+docker compose logs -f api     # follow one service
+docker compose exec api sh     # shell into a service
+docker compose down            # stop and remove containers + network
+docker compose down -v         # ...and delete the volumes
+```
+
+<Callout type="warning">
+  `docker compose down -v` deletes your database. It is one character away from the command you
+  meant. Many people alias `dcd` to `docker compose down` specifically so the `-v` version has to
+  be typed deliberately.
+</Callout>
+
+## A realistic daily loop
+
+```bash
+docker compose watch                # start the stack, sync source on save
+docker compose logs -f api          # watch the app in another terminal
+docker compose exec db psql -U app  # open a psql shell when needed
+docker compose restart api          # after a config change
+docker compose down                 # end of day
+```
+
+That is genuinely most of it. `docker compose watch` rebuilds only when dependencies change and
+syncs files otherwise, which removes the rebuild-on-every-save problem that made early Docker
+development unpleasant.
+
+## Worth knowing exists
+
+```bash
+docker inspect api                  # full JSON: mounts, networks, env, config
+docker diff api                     # files changed since the image
+docker cp api:/app/out.txt ./       # copy a file out of a container
+docker history myapp:1.4.0          # layer sizes — find what made it big
+```
+
+`docker history` is the one to reach for when an image is unexpectedly large. It shows you
+exactly which instruction added the weight.
+
+Next: the six mistakes that cost everyone a day at some point.

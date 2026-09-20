@@ -1,0 +1,232 @@
+---
+title: The Terraform workflow that scales
+description: >-
+  The commands you will run daily, how to structure multiple environments without copy-paste, and
+  what a sane CI pipeline for infrastructure looks like.
+order: 5
+pubDate: 2026-09-20
+tags: [terraform, workflow, ci-cd, modules]
+---
+
+import Callout from '@/components/Callout.astro';
+
+## The daily commands
+
+```bash
+terraform fmt -recursive      # canonical formatting
+terraform validate            # syntax and types, no API calls
+terraform plan                # what would change
+terraform apply               # do it
+terraform output              # read the outputs
+terraform show                # human-readable current state
+```
+
+`fmt` and `validate` cost nothing and belong in a pre-commit hook. `plan` is the one you will run
+dozens of times a day.
+
+## Targeting and refreshing
+
+```bash
+terraform plan -target=aws_s3_bucket.site     # plan one resource
+terraform apply -refresh-only                 # sync state with reality, change nothing
+terraform plan -refresh=false                 # skip the refresh — much faster on big configs
+```
+
+<Callout type="warning" title="-target is an escape hatch, not a workflow">
+  `-target` skips the dependency graph, which is precisely the thing that makes Terraform correct.
+  It is for recovering from a broken state, not for routine use. If you reach for it regularly,
+  your configuration is too large and wants splitting.
+</Callout>
+
+## State operations
+
+```bash
+terraform state list                               # every managed address
+terraform state show aws_s3_bucket.site            # one resource's attributes
+terraform state mv aws_s3_bucket.old aws_s3_bucket.new   # rename without recreating
+terraform state rm aws_s3_bucket.site              # stop managing it (does not delete it)
+terraform import aws_s3_bucket.site my-bucket-name # start managing something that exists
+```
+
+`state mv` is the one that saves you. Renaming a resource in your code makes Terraform see a
+destroy plus a create — because the address changed. `state mv` updates the mapping instead, and
+the plan comes back empty.
+
+<Callout type="danger" title="Back up state before any state command">
+  ```bash
+  terraform state pull > backup-$(date +%s).tfstate
+  ```
+  `state rm` and `state mv` edit the file Terraform relies on to know what exists. A mistake here
+  can orphan live resources or cause a destroy of things you still need.
+</Callout>
+
+### Import blocks — the modern way
+
+Since 1.5, imports can be declared in code and planned before they happen:
+
+```hcl
+import {
+  to = aws_s3_bucket.legacy
+  id = "my-existing-bucket"
+}
+```
+
+```bash
+terraform plan -generate-config-out=generated.tf
+```
+
+Terraform writes the resource block for you. Much better than the old imperative
+`terraform import`, because you can review it first.
+
+## Structuring multiple environments
+
+This is where most Terraform codebases go wrong. Three approaches, in increasing order of how
+well they hold up.
+
+### Workspaces — convenient, limited
+
+```bash
+terraform workspace new staging
+terraform workspace select staging
+terraform apply
+```
+
+One configuration, separate state per workspace. Fine when environments are genuinely identical
+and differ only in a few variables. It breaks down as soon as prod needs a resource that dev does
+not, and the `count = terraform.workspace == "prod" ? 1 : 0` conditionals start spreading.
+
+### Directory per environment — verbose but obvious
+
+```
+environments/
+├── dev/
+│   ├── main.tf
+│   └── terraform.tfvars
+├── staging/
+└── prod/
+modules/
+├── network/
+└── application/
+```
+
+Each environment has its own backend key, its own state, its own explicit configuration. It is
+more files, and the blast radius of a mistake is one environment. This is what most teams
+converge on.
+
+```hcl
+# environments/prod/main.tf
+module "application" {
+  source = "../../modules/application"
+
+  environment    = "prod"
+  instance_count = 6
+  instance_type  = "t3.large"
+}
+```
+
+### Terragrunt — if the repetition gets painful
+
+Terragrunt is a thin wrapper that removes the duplicated backend and provider blocks across
+environments. Worth considering at roughly ten environments or more; unnecessary below that.
+
+## Writing your own modules
+
+A module is a directory with the same three files:
+
+```
+modules/application/
+├── main.tf
+├── variables.tf
+├── outputs.tf
+└── README.md
+```
+
+Two rules make modules good:
+
+**Take inputs, do not read the environment.** A module that calls `data "aws_vpc" "default"` is
+only usable in accounts where that default exists. A module that takes `vpc_id` as a variable
+works everywhere.
+
+**Output everything a caller might need.** The ARN, the id, the endpoint, the security group.
+Outputs are cheap and a missing one means editing the module.
+
+```hcl
+variable "vpc_id" {
+  description = "VPC the application runs in"
+  type        = string
+}
+
+output "security_group_id" {
+  description = "Security group attached to the application"
+  value       = aws_security_group.app.id
+}
+```
+
+<Callout type="tip" title="Do not wrap a single resource in a module">
+  A module that contains one `aws_s3_bucket` and passes through five variables adds indirection
+  and removes flexibility. Modules earn their keep when they group **several** resources that are
+  always created together — a VPC with its subnets, routes and gateways, for instance.
+</Callout>
+
+## CI for infrastructure
+
+The pattern that works:
+
+```yaml
+name: Terraform
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - run: terraform init
+      - run: terraform fmt -check -recursive
+      - run: terraform validate
+      - run: terraform plan -out=tfplan -no-color
+
+      # Post the plan on the PR so a human reads it before merge
+      - uses: actions/github-script@v7
+        if: github.event_name == 'pull_request'
+        with:
+          script: |
+            const plan = require('fs').readFileSync('plan.txt', 'utf8');
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '```\n' + plan.slice(0, 60000) + '\n```',
+            });
+```
+
+The essential properties: **plan on the pull request, apply only on merge to main, and never
+store long-lived cloud credentials** — use OIDC.
+
+## Security scanning
+
+```bash
+brew install tfsec checkov
+tfsec .
+checkov -d .
+```
+
+Both catch the common misconfigurations — public buckets, unencrypted volumes, security groups
+open to the world — before they reach an account. Adding one of them to CI takes ten minutes.
+
+Next: the mistakes that cost people databases.

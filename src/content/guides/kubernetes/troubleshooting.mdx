@@ -1,0 +1,239 @@
+---
+title: Debugging a pod that will not start
+description: >-
+  A diagnostic path for the states you will actually meet — Pending, CrashLoopBackOff,
+  ImagePullBackOff, OOMKilled — and what each one is really telling you.
+order: 7
+pubDate: 2026-09-20
+tags: [kubernetes, troubleshooting, debugging, pods]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Kubernetes tells you what is wrong. The information is just spread across four commands.
+
+## The order to run things
+
+```bash
+kubectl get pods                     # 1. what state is it in?
+kubectl describe pod <name>          # 2. read the Events at the bottom
+kubectl logs <name>                  # 3. what did the app say?
+kubectl logs <name> --previous       # 4. what did it say before the restart?
+```
+
+Ninety percent of problems are answered by step 2. The Events list at the bottom of `describe` is
+the single most useful output in Kubernetes and it is below the fold, so people miss it.
+
+## `Pending` — never scheduled
+
+The scheduler could not place the pod anywhere.
+
+```bash
+kubectl describe pod <name> | tail -20
+```
+
+```
+Events:
+  Warning  FailedScheduling  0/3 nodes are available:
+           3 Insufficient cpu.
+```
+
+The message names the reason directly. Common ones:
+
+| Message | Meaning |
+|---|---|
+| `Insufficient cpu` / `memory` | No node has room for your **requests** |
+| `node(s) had untolerated taint` | Nodes are tainted and your pod has no toleration |
+| `pod has unbound immediate PersistentVolumeClaims` | Storage could not be provisioned |
+| `didn't match Pod's node affinity` | Your affinity rules exclude every node |
+
+```bash
+kubectl describe nodes | grep -A5 "Allocated resources"
+```
+
+That shows what is actually reserved. Note that it reflects **requests**, not usage — a node can
+be "full" while idle.
+
+## `ImagePullBackOff` / `ErrImagePull`
+
+```
+Failed to pull image "myapp:1.0": not found
+```
+
+Four causes, in order of likelihood:
+
+1. **Typo in the image name or tag.** Check it character by character.
+2. **Private registry with no credentials.** You need an image pull secret:
+   ```bash
+   kubectl create secret docker-registry regcred \
+     --docker-server=registry.example.com \
+     --docker-username=user --docker-password=pass
+   ```
+   ```yaml
+   spec:
+     imagePullSecrets:
+       - name: regcred
+   ```
+3. **Wrong architecture.** An `arm64` image built on an Apple Silicon Mac will not run on `amd64`
+   nodes. Build multi-arch with `docker buildx`.
+4. **Rate limiting.** Anonymous Docker Hub pulls are limited; authenticate or use a mirror.
+
+## `CrashLoopBackOff` — starts, then dies, repeatedly
+
+The container is starting and exiting. Kubernetes restarts it with increasing backoff.
+
+```bash
+kubectl logs <name> --previous
+```
+
+<Callout type="tip" title="--previous is the whole trick here">
+  The current container has just started and has written nothing useful. The instance that
+  *crashed* holds the stack trace, and `--previous` is how you read it. This single flag resolves
+  most CrashLoopBackOff investigations.
+</Callout>
+
+Then check the exit code:
+
+```bash
+kubectl describe pod <name> | grep -A3 "Last State"
+```
+
+```
+Last State:     Terminated
+  Reason:       Error
+  Exit Code:    1
+```
+
+| Exit code | Meaning |
+|---|---|
+| 0 | Completed normally — your `command` finishes instead of staying up |
+| 1 | Application error — read the logs |
+| 137 | SIGKILL — almost always OOMKilled |
+| 139 | Segfault |
+| 143 | SIGTERM — terminated normally during shutdown |
+
+To get in and look around without the process crashing, override the command:
+
+```bash
+kubectl run debug --rm -it --image=myapp:1.0 --restart=Never -- sh
+```
+
+## `OOMKilled`
+
+```
+Last State:     Terminated
+  Reason:       OOMKilled
+  Exit Code:    137
+```
+
+The container exceeded its memory limit. Either the limit is too low or the application is
+leaking.
+
+```bash
+kubectl top pod <name> --containers
+```
+
+Raise the limit if the number is legitimate. If memory climbs steadily and never falls, you have
+a leak and raising the limit only delays the restart.
+
+## `Running` but not `Ready`
+
+```
+NAME                   READY   STATUS    RESTARTS
+web-7d4b9c8f5-x2k9p    0/1     Running   0
+```
+
+The process is up, the readiness probe is failing, and the Service is correctly refusing to send
+it traffic.
+
+```bash
+kubectl describe pod <name> | grep -A5 "Readiness"
+```
+
+Usual causes: the probe path is wrong, the port is wrong, or `initialDelaySeconds` is too short
+for the application's startup. For slow-starting applications use a `startupProbe` rather than
+inflating the initial delay on every probe.
+
+## A Service that does not work
+
+```bash
+kubectl get endpoints <service-name>
+```
+
+**Empty means the selector matches no pods.** Compare:
+
+```bash
+kubectl get pods --show-labels
+kubectl describe svc <service-name> | grep Selector
+```
+
+If endpoints exist but connections still fail, test from inside:
+
+```bash
+kubectl run tmp --rm -it --image=nicolaka/netshoot --restart=Never -- bash
+
+# then, in the shell:
+nslookup my-service
+curl -v http://my-service
+nc -zv my-service 80
+```
+
+If DNS resolves but the connection is refused, the application is bound to `127.0.0.1` inside its
+container instead of `0.0.0.0` — the same mistake as in the Docker guide, seen from the cluster.
+
+## Ingress returns 404 or 503
+
+```bash
+kubectl get ingress
+kubectl describe ingress <name>
+kubectl logs -n ingress-nginx deployment/ingress-nginx-controller
+```
+
+Check in this order:
+
+1. **Is a controller installed and running?** An Ingress with no controller does nothing.
+2. **Is `ingressClassName` set and correct?**
+3. **Does the backend Service exist, with that exact port name or number?**
+4. **Does the Service have endpoints?** (the check above)
+
+## Cluster-wide view
+
+```bash
+kubectl get events -A --sort-by=.metadata.creationTimestamp | tail -30
+```
+
+The recent events across the whole cluster, newest last. When something is wrong and you do not
+know where, start here.
+
+```bash
+kubectl get pods -A | grep -v Running | grep -v Completed
+```
+
+Everything that is not healthy, in one line.
+
+## The mental checklist
+
+1. **`kubectl get pods`** — which state?
+2. **`kubectl describe pod`** — read the Events at the bottom
+3. **`kubectl logs --previous`** — if it is restarting
+4. **`kubectl get endpoints`** — if it is a connectivity problem
+5. **`kubectl get events -A`** — if you do not know where to look
+
+<Callout type="note" title="The state names the layer">
+  `Pending` is a scheduling problem — look at nodes and requests. `ImagePullBackOff` is a registry
+  problem — look at the image name and credentials. `CrashLoopBackOff` is an application problem —
+  look at the logs. `Running but not Ready` is a probe problem. The status field tells you which
+  of four places to look, which is most of the work.
+</Callout>
+
+## You have finished the guide
+
+You understand the reconciliation loop, the objects that matter, and how to deploy, expose,
+update and debug a real application. That covers what most people need day to day.
+
+What comes next is platform work — an ingress controller, cert-manager, monitoring, GitOps with
+Argo CD or Flux, and RBAC. Each is its own topic, and each is much easier now that the core model
+is in place.
+
+If you have not read it yet, the [Docker guide](/guides/docker) covers building the images this
+all runs, and the [Terraform guide](/guides/terraform) covers declaring the cluster itself.

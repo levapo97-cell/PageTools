@@ -1,0 +1,174 @@
+---
+title: Why Git feels confusing (and the fix)
+description: >-
+  Git is not hard because the commands are hard. It is hard because almost nobody explains what a
+  commit actually is. Ten minutes on the data model saves you years of cargo-culting.
+order: 1
+pubDate: 2026-09-20
+tags: [git, version-control, fundamentals]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Most people learn Git as a set of incantations. `git add .`, `git commit -m`, `git push`. It
+works until something goes wrong, and then it is Stack Overflow roulette — paste a command,
+hope, and if that fails, delete the folder and clone again.
+
+The reason is that the standard tutorial teaches the commands without teaching the thing the
+commands operate on. This chapter teaches that thing. It is smaller than you expect.
+
+## Git is a content-addressed key-value store
+
+Underneath everything, Git is a database with four kinds of object. Every object is stored under
+the SHA-1 hash of its own contents.
+
+**Blob** — the contents of a file. Just bytes. No filename, no permissions, no history.
+
+**Tree** — a directory listing. It maps names to blobs and to other trees, with file modes.
+
+**Commit** — a pointer to one tree (the complete snapshot of your project at that moment), plus
+author, message, timestamp, and **pointers to its parent commits**.
+
+**Tag** — a named pointer to a commit, usually a release.
+
+That is all. You can see it yourself in any repository:
+
+```bash
+git cat-file -p HEAD
+```
+
+```
+tree 8d3f1a2b...
+parent 4c9e7d1f...
+author Ada Lovelace <ada@example.com> 1758326400 +0000
+committer Ada Lovelace <ada@example.com> 1758326400 +0000
+
+Add rate limiting to the API
+```
+
+Follow the tree:
+
+```bash
+git cat-file -p 8d3f1a2b
+```
+
+```
+100644 blob a1b2c3d4...    README.md
+040000 tree e5f6a7b8...    src
+```
+
+That is the entire data model. A commit points to a snapshot and to its parents.
+
+<Callout type="note" title="Commits are snapshots, not diffs">
+  This is the correction that fixes most confusion. Git does not store "what changed" — it stores
+  the complete tree at each commit. The diffs you see are **computed on demand** by comparing two
+  snapshots. Once you know that, `cherry-pick`, `rebase` and `reset` stop seeming magical: they
+  are all just operations on a graph of snapshots.
+</Callout>
+
+## Branches are not what you think
+
+A branch is a **file containing forty hex characters**. That is the whole implementation.
+
+```bash
+cat .git/refs/heads/main
+```
+
+```
+4c9e7d1f8a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d
+```
+
+That is it. A branch is a movable pointer to one commit. Creating a branch writes a 41-byte file,
+which is why it is instantaneous even in a repository with a million commits — and why Git's
+branching culture is so different from the version control systems that came before it, where a
+branch meant copying the tree.
+
+`HEAD` is one more level of indirection: a file that usually contains `ref: refs/heads/main`,
+meaning "you are on the main branch". When it contains a raw hash instead, you are in "detached
+HEAD" — which is not an error state, just HEAD pointing at a commit rather than a branch.
+
+## The three places your work lives
+
+This is the other half of the mental model, and the source of the second-biggest pile of
+confusion.
+
+```
+  working tree          index (staging)         repository
+  ─────────────         ───────────────         ──────────
+  your actual files  →  what will go in     →   committed
+                        the next commit          history
+
+       git add ─────────────┘
+                     git commit ─────────────────┘
+```
+
+Most version control systems have two places. Git has three, and the middle one — the index, also
+called the staging area — is what people find strange.
+
+It exists so you can commit *part* of your working changes. You fixed a bug and also renamed a
+variable; you can stage and commit them separately, producing a history that is readable later.
+
+```bash
+git status              # shows all three: staged, unstaged, untracked
+git diff                # working tree vs index  — "what have I not staged?"
+git diff --staged       # index vs HEAD          — "what am I about to commit?"
+```
+
+<Callout type="tip">
+  If you learn one habit from this guide, make it running `git diff --staged` before every commit.
+  It is the last chance to notice the debug statement, the commented-out block, or the `.env` file
+  you did not mean to include.
+</Callout>
+
+## Why this makes the scary commands unscary
+
+Reconsider three commands people avoid, in terms of the model:
+
+**`git reset --hard <commit>`** — move the current branch pointer to that commit and make the
+working tree match. It does not delete commits; it moves a pointer. The old commits still exist
+in the database.
+
+**`git rebase main`** — take each of my commits, and re-create it with a different parent. New
+commits, same changes, different base. "Replay these snapshots elsewhere."
+
+**`git cherry-pick <commit>`** — compute the diff that commit introduced, and apply it here as a
+new commit.
+
+All three are operations on a graph of snapshots and pointers. None of them is mysterious once
+you know what the graph is.
+
+## Your safety net
+
+Because commits are content-addressed and nothing is deleted immediately, Git keeps a log of
+everywhere `HEAD` has been:
+
+```bash
+git reflog
+```
+
+```
+4c9e7d1 HEAD@{0}: reset: moving to HEAD~3
+8a2b3c4 HEAD@{1}: commit: Add rate limiting
+...
+```
+
+If you reset, rebase or "lose" work, the commit is still in the database and the reflog has its
+hash. Recovering it is:
+
+```bash
+git reset --hard HEAD@{1}
+```
+
+<Callout type="warning" title="The one genuine way to lose work">
+  The reflog only tracks **committed** work. Changes that were never committed — sitting in your
+  working tree or staged — are genuinely destroyed by `git reset --hard` or `git checkout .`.
+  Commit early; you can always rewrite the history later.
+</Callout>
+
+## What you will learn in this guide
+
+Installation and a sane configuration, the everyday commands with the model attached to each one,
+branching and merging without fear, the mistakes that produce the Stack Overflow questions, and
+how to get out of trouble when you are in it.
+
+Next: installing Git and configuring it so it stops fighting you.

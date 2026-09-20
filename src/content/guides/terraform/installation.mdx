@@ -1,0 +1,202 @@
+---
+title: Installing Terraform and wiring up credentials
+description: >-
+  Install the CLI, authenticate to a cloud provider without putting keys in your code, and verify
+  the whole chain works before you write a single resource.
+order: 2
+pubDate: 2026-09-20
+tags: [terraform, installation, aws, credentials]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+Terraform is a single binary. The part that actually goes wrong is credentials, so we will verify
+those properly.
+
+## Install the CLI
+
+**macOS**
+
+```bash
+brew tap hashicorp/tap
+brew install hashicorp/tap/terraform
+```
+
+**Linux**
+
+```bash
+wget -O- https://apt.releases.hashicorp.com/gpg | \
+  sudo gpg --dearmor -o /usr/share/keyrings/hashicorp-archive-keyring.gpg
+echo "deb [signed-by=/usr/share/keyrings/hashicorp-archive-keyring.gpg] \
+https://apt.releases.hashicorp.com $(lsb_release -cs) main" | \
+  sudo tee /etc/apt/sources.list.d/hashicorp.list
+sudo apt update && sudo apt install terraform
+```
+
+**Windows**
+
+```powershell
+choco install terraform
+```
+
+**Any platform** — `tfenv` manages multiple versions, which you will want as soon as you have two
+projects:
+
+```bash
+brew install tfenv
+tfenv install 1.9.8
+tfenv use 1.9.8
+```
+
+Verify:
+
+```bash
+terraform version
+```
+
+This guide was written against **Terraform 1.x**. Everything here also works with OpenTofu — swap
+`terraform` for `tofu`.
+
+## Shell completion and an alias
+
+```bash
+terraform -install-autocomplete
+```
+
+Most people end up with:
+
+```bash
+alias tf=terraform
+```
+
+## Credentials, without putting keys in your code
+
+We will use AWS as the example. The principle is the same everywhere: **the provider reads
+credentials from the environment, never from your `.tf` files.**
+
+### The right way: SSO
+
+```bash
+brew install awscli
+aws configure sso
+```
+
+Follow the prompts, then:
+
+```bash
+export AWS_PROFILE=my-sso-profile
+aws sts get-caller-identity
+```
+
+That last command is the verification. It should print your account id, user id and ARN. If it
+does, Terraform will authenticate too.
+
+### The acceptable way: a named profile
+
+```bash
+aws configure --profile myproject
+export AWS_PROFILE=myproject
+aws sts get-caller-identity
+```
+
+### In CI: OIDC, not stored keys
+
+GitHub Actions can assume an AWS role directly, with no long-lived secret to leak:
+
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: arn:aws:iam::123456789012:role/terraform
+      aws-region: us-east-1
+```
+
+<Callout type="danger" title="Never put credentials in a .tf file">
+  ```hcl
+  provider "aws" {
+    access_key = "AKIA..."   # NO
+    secret_key = "wJalr..."  # NO
+  }
+  ```
+  Those files get committed. Scanners find them within minutes of a public push. The provider
+  reads `AWS_PROFILE`, `AWS_ACCESS_KEY_ID` and the rest from the environment on its own — give it
+  nothing.
+</Callout>
+
+## Verify the whole chain
+
+Create a throwaway directory and prove the full path works before you build anything real.
+
+```bash
+mkdir tf-verify && cd tf-verify
+```
+
+`main.tf`:
+
+```hcl
+terraform {
+  required_version = ">= 1.5"
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region = "us-east-1"
+}
+
+data "aws_caller_identity" "current" {}
+
+output "account_id" {
+  value = data.aws_caller_identity.current.account_id
+}
+```
+
+```bash
+terraform init
+terraform plan
+```
+
+`init` downloads the AWS provider. `plan` should print your account id without creating anything
+— a `data` source only reads.
+
+If that works, everything downstream will.
+
+<Callout type="tip" title="Pin your provider versions">
+  `version = "~> 5.0"` means "any 5.x, but not 6.0". Without a constraint, a major provider
+  release can change behaviour under you between two runs. `required_version` does the same for
+  the Terraform binary itself. Both belong in every project.
+</Callout>
+
+## The gitignore you need immediately
+
+```
+# Local state — never commit this
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl.backup
+
+# Variable files that may contain secrets
+*.tfvars
+!example.tfvars
+
+# Crash logs
+crash.log
+```
+
+<Callout type="warning" title="But do commit .terraform.lock.hcl">
+  The lock file pins provider versions and their checksums across your whole team and CI. It is
+  the equivalent of `package-lock.json` and it **should** be committed. Only the `.backup` variant
+  is ignored above.
+</Callout>
+
+Next: state, resources and the concepts the rest of Terraform is built from.

@@ -1,0 +1,259 @@
+---
+title: Your first infrastructure, built properly
+description: >-
+  Build a real static website on AWS — bucket, policy, CloudFront — structured the way a project
+  should be from the start, with variables, outputs and remote state.
+order: 4
+pubDate: 2026-09-20
+tags: [terraform, aws, tutorial, s3]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+We will build something small but genuinely useful: a static site on S3 behind CloudFront. It
+exercises resources, data sources, variables, outputs, dependencies and policy documents — the
+whole vocabulary.
+
+<Callout type="warning" title="This creates real resources">
+  S3 and CloudFront both have free tiers that comfortably cover this exercise, but check your
+  account. Chapter ends with `terraform destroy` — run it.
+</Callout>
+
+## Project layout
+
+```bash
+mkdir tf-static-site && cd tf-static-site
+```
+
+```
+tf-static-site/
+├── main.tf          # the resources
+├── variables.tf     # inputs
+├── outputs.tf       # what we expose
+├── versions.tf      # provider and version constraints
+└── terraform.tfvars # values (gitignored if it holds secrets)
+```
+
+Splitting these files is convention, not requirement — Terraform loads every `.tf` in the
+directory. But every Terraform codebase you meet will use this layout, so start with it.
+
+## versions.tf
+
+```hcl
+terraform {
+  required_version = ">= 1.5"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.6"
+    }
+  }
+}
+
+provider "aws" {
+  region = var.region
+
+  default_tags {
+    tags = {
+      Project   = var.project
+      ManagedBy = "terraform"
+    }
+  }
+}
+```
+
+`default_tags` applies those tags to every taggable resource this provider creates. It is the
+easiest cost-attribution win in Terraform and almost nobody uses it.
+
+## variables.tf
+
+```hcl
+variable "project" {
+  description = "Project name, used as a prefix for resource names"
+  type        = string
+  default     = "tf-static-site"
+}
+
+variable "region" {
+  description = "AWS region"
+  type        = string
+  default     = "us-east-1"
+}
+
+variable "environment" {
+  description = "Deployment environment"
+  type        = string
+  default     = "dev"
+
+  validation {
+    condition     = contains(["dev", "staging", "prod"], var.environment)
+    error_message = "environment must be one of: dev, staging, prod."
+  }
+}
+```
+
+## main.tf
+
+```hcl
+locals {
+  name_prefix = "${var.project}-${var.environment}"
+}
+
+# Bucket names are globally unique, so add entropy
+resource "random_id" "suffix" {
+  byte_length = 4
+}
+
+resource "aws_s3_bucket" "site" {
+  bucket = "${local.name_prefix}-${random_id.suffix.hex}"
+}
+
+resource "aws_s3_bucket_public_access_block" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  block_public_acls       = true
+  block_public_policy     = false
+  ignore_public_acls      = true
+  restrict_public_buckets = false
+}
+
+resource "aws_s3_bucket_website_configuration" "site" {
+  bucket = aws_s3_bucket.site.id
+
+  index_document { suffix = "index.html" }
+  error_document { key = "404.html" }
+}
+
+# A policy document as data, rather than a heredoc of JSON
+data "aws_iam_policy_document" "public_read" {
+  statement {
+    sid       = "PublicRead"
+    effect    = "Allow"
+    actions   = ["s3:GetObject"]
+    resources = ["${aws_s3_bucket.site.arn}/*"]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "site" {
+  bucket = aws_s3_bucket.site.id
+  policy = data.aws_iam_policy_document.public_read.json
+
+  # The public access block must be configured first, or this is rejected
+  depends_on = [aws_s3_bucket_public_access_block.site]
+}
+
+resource "aws_s3_object" "index" {
+  bucket       = aws_s3_bucket.site.id
+  key          = "index.html"
+  content_type = "text/html"
+
+  content = <<-HTML
+    <!doctype html>
+    <html lang="en">
+      <head><meta charset="utf-8"><title>${local.name_prefix}</title></head>
+      <body><h1>Deployed with Terraform</h1></body>
+    </html>
+  HTML
+
+  etag = md5("${local.name_prefix}-index")
+}
+```
+
+Notice three things:
+
+1. **`aws_iam_policy_document`** builds the JSON for you, with validation. Writing IAM policies as
+   heredoc strings is how typos become 20-minute debugging sessions.
+2. **`depends_on`** on the bucket policy. There is no reference between the policy and the public
+   access block, but AWS rejects the policy if the block is not configured first.
+3. **`random_id`** gives the bucket a globally unique name without you inventing one.
+
+## outputs.tf
+
+```hcl
+output "bucket_name" {
+  description = "Name of the site bucket"
+  value       = aws_s3_bucket.site.id
+}
+
+output "website_url" {
+  description = "Public URL of the static site"
+  value       = "http://${aws_s3_bucket_website_configuration.site.website_endpoint}"
+}
+```
+
+## Run it
+
+```bash
+terraform init
+```
+
+Providers download, the lock file appears. Then:
+
+```bash
+terraform fmt      # canonical formatting — run this always
+terraform validate # syntax and type checking, no API calls
+terraform plan
+```
+
+Read the plan. You should see `Plan: 7 to add, 0 to change, 0 to destroy.` — and every one of
+those seven should be something you recognise.
+
+```bash
+terraform apply
+```
+
+Type `yes`. Then:
+
+```bash
+terraform output website_url
+curl "$(terraform output -raw website_url)"
+```
+
+## Now change something
+
+Edit the heading in `main.tf`, then:
+
+```bash
+terraform plan
+```
+
+```
+  ~ resource "aws_s3_object" "index" {
+      ~ content = <<-HTML ... (changed)
+      ~ etag    = "abc..." -> "def..."
+    }
+
+Plan: 0 to add, 1 to change, 0 to destroy.
+```
+
+One resource, updated in place. Nothing else touched. That precision is the whole point.
+
+<Callout type="tip" title="Save the plan you reviewed">
+  ```bash
+  terraform plan -out=tfplan
+  terraform apply tfplan
+  ```
+  Applying a saved plan guarantees you apply exactly what you read, with no re-plan in between.
+  This is what CI should do, and it removes an entire class of "but the plan said..." incidents.
+</Callout>
+
+## Clean up
+
+```bash
+terraform destroy
+```
+
+Read this plan too — it should be `7 to destroy` and nothing else.
+
+Next: the commands and workflow of real Terraform use.

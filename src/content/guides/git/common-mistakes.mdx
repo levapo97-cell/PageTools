@@ -1,0 +1,180 @@
+---
+title: The mistakes that fill Stack Overflow
+description: >-
+  Committing secrets, force-pushing over a colleague, detached HEAD, giant binaries. What causes
+  each one, how to get out of it, and how to stop it happening again.
+order: 6
+pubDate: 2026-09-20
+tags: [git, mistakes, recovery, security]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Every one of these has a Stack Overflow question with a million views. Here is what is actually
+happening in each, and the way out.
+
+## 1. Committing a secret
+
+You committed `.env` with a live API key. Deleting the file in a new commit does **not** help —
+the key is still in history, and anyone with the repository can read it.
+
+<Callout type="danger" title="Rotate the key first">
+  Before any Git surgery: **assume the credential is compromised and rotate it.** If the commit was
+  pushed to a public repository, automated scanners found it within minutes. Cleaning history is
+  the second step, never the first.
+</Callout>
+
+If it is the most recent commit and not pushed:
+
+```bash
+git rm --cached .env
+echo ".env" >> .gitignore
+git commit --amend --no-edit
+```
+
+If it is deeper in history, rewrite it with `git filter-repo`:
+
+```bash
+pip install git-filter-repo
+git filter-repo --invert-paths --path .env
+git push --force-with-lease --all
+```
+
+Then tell every collaborator to re-clone. Their old clones still contain the secret.
+
+**Prevention:** add `.env` to `.gitignore` in the first commit of every project, and install a
+pre-commit hook such as `gitleaks` that refuses commits containing credential patterns.
+
+## 2. Force-pushing over a colleague
+
+You rebased, pushed with `--force`, and erased three commits someone else had pushed.
+
+They are not gone — they are in *their* reflog, and in the remote's if you have server access:
+
+```bash
+# Ask your colleague to run:
+git reflog
+git push origin <their-hash>:refs/heads/rescue
+```
+
+**Prevention:** two things, both worth doing today. Use `--force-with-lease` always. And turn on
+branch protection for `main` on GitHub so force pushes are rejected at the server.
+
+## 3. Detached HEAD
+
+```
+You are in 'detached HEAD' state...
+```
+
+This alarms people and it should not. It means HEAD points at a commit rather than a branch —
+usually after `git checkout <hash>` or during a bisect. Nothing is broken.
+
+If you made no commits, just leave:
+
+```bash
+git switch -
+```
+
+If you made commits and want to keep them:
+
+```bash
+git switch -c rescue-branch      # name the work before moving
+```
+
+<Callout type="warning">
+  Leaving detached HEAD **without** creating a branch orphans any commits you made there. They stay
+  in the reflog for a while, but they will eventually be garbage collected. If you committed, make
+  a branch first.
+</Callout>
+
+## 4. `git pull` produced a merge commit you did not want
+
+```
+Merge branch 'main' of github.com:org/repo
+```
+
+Default `git pull` merges. When both sides moved, you get this.
+
+```bash
+git reset --hard HEAD~1     # drop the merge (only if it is not pushed)
+git pull --rebase           # do it again, rebasing
+```
+
+**Prevention:** the config from chapter two, `git config --global pull.rebase true`.
+
+## 5. Committing a large binary
+
+You committed a 300 MB file, removed it in the next commit, and the repository is still 300 MB
+bigger — forever, for everyone who clones it.
+
+```bash
+git filter-repo --strip-blobs-bigger-than 10M
+```
+
+**Prevention:** use Git LFS for large assets, and add a pre-commit hook rejecting oversized
+files. This one is much cheaper to prevent than to fix.
+
+## 6. `git reset --hard` on work you needed
+
+```bash
+git reflog
+```
+
+```
+a1b2c3d HEAD@{0}: reset: moving to HEAD~3
+9f8e7d6 HEAD@{1}: commit: The work you thought you lost
+```
+
+```bash
+git reset --hard HEAD@{1}
+```
+
+Recovered. The reflog keeps entries for 90 days by default.
+
+<Callout type="danger" title="The one exception">
+  The reflog only knows about **commits**. Uncommitted changes destroyed by `git reset --hard` or
+  `git restore .` are genuinely gone, with no recovery. This is the strongest argument for
+  committing early and often — you can always tidy the history later, but you cannot resurrect
+  what was never committed.
+</Callout>
+
+## 7. Wrong author on your commits
+
+You committed with the wrong `user.email`, so GitHub does not attribute the commits to you, or
+attributes them to the wrong account.
+
+For the most recent commit:
+
+```bash
+git config user.email "right@example.com"
+git commit --amend --reset-author --no-edit
+```
+
+For a range, `git filter-repo` with a mailmap, or interactive rebase with `--exec`.
+
+**Prevention:** `git config --list --show-origin | grep user.` in every new repository before the
+first commit. This takes two seconds and it is the check that catches the work-versus-personal
+mix-up.
+
+## 8. The merge conflict "resolved" into a bug
+
+You picked a side to make the conflict go away, and quietly deleted a colleague's change.
+
+```bash
+git log --merge -p path/to/file
+```
+
+This shows the commits from both sides that touched the conflicted file. Read them before
+choosing. A conflict is Git telling you that two intentions collided — resolving it is a
+judgement call, not a formatting exercise.
+
+## The habits that prevent most of this
+
+- Add `.gitignore` in your first commit, with `.env` in it
+- `--force-with-lease`, never `--force`
+- Branch protection on `main`, with force pushes disabled
+- `git diff --staged` before every commit
+- Commit early and often; clean up with interactive rebase afterwards
+- `git status` between every operation — it will usually tell you what to do next
+
+Next: getting out of trouble when you are already in it.

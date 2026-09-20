@@ -1,5 +1,6 @@
 // @ts-check
 import { defineConfig } from 'astro/config';
+import mdx from '@astrojs/mdx';
 import sitemap from '@astrojs/sitemap';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -14,7 +15,11 @@ export default defineConfig({
   output: 'static',
   trailingSlash: 'never',
   build: {
-    format: 'file',
+    // 'directory' keeps a guide overview and its chapters in one tree
+    // (guides/docker/index.html, guides/docker/installation/index.html) rather
+    // than a `guides/docker.html` file sitting beside a `guides/docker/`
+    // directory. Both work; this one leaves no sibling name to resolve.
+    format: 'directory',
     inlineStylesheets: 'auto',
   },
   prefetch: {
@@ -22,6 +27,7 @@ export default defineConfig({
     defaultStrategy: 'viewport',
   },
   integrations: [
+    mdx(),
     sitemap({
       filter: (page) => !page.includes('/404'),
       changefreq: 'weekly',

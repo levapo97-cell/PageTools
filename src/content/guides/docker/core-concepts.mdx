@@ -1,0 +1,156 @@
+---
+title: The four concepts everything else is built on
+description: >-
+  Images, containers, volumes and networks. Learn these four and the rest of Docker becomes
+  predictable — including the commands you have not read about yet.
+order: 3
+pubDate: 2026-09-20
+tags: [docker, concepts, images, volumes]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Docker has a large command surface and a small conceptual one. There are four things. Everything
+in the CLI is an operation on one of them.
+
+## 1. Images — the frozen filesystem
+
+An **image** is a read-only filesystem plus metadata describing how to start a process in it.
+Think of it as a class. It does nothing on its own.
+
+Images are built in **layers**, and this is the part worth understanding properly because it
+governs both build speed and image size. Each instruction in a Dockerfile produces one layer, and
+each layer stores only what changed from the layer beneath it:
+
+```
+┌─────────────────────────────┐
+│ COPY . .                    │  ← your source code
+├─────────────────────────────┤
+│ RUN npm ci                  │  ← node_modules
+├─────────────────────────────┤
+│ COPY package*.json ./       │  ← dependency manifest
+├─────────────────────────────┤
+│ FROM node:22-alpine         │  ← base image
+└─────────────────────────────┘
+```
+
+Two consequences follow, and they drive most of Docker's practical advice:
+
+**Layers are cached.** Rebuilding only re-runs instructions from the first changed layer
+downward. This is exactly why every Dockerfile you have seen copies `package.json` and installs
+dependencies *before* copying the source — source changes on every commit, dependencies do not,
+so putting them in that order keeps the expensive install cached.
+
+**Layers are shared.** Ten images built `FROM node:22-alpine` store that base once on disk and
+download it once.
+
+<Callout type="warning" title="Deleting a file does not shrink the image">
+  Layers are additive. If one layer adds a 400MB file and a later one deletes it, both layers ship
+  — the file is invisible but still in the image. This is why secrets baked into an early layer
+  are still extractable even if a later layer removes them, and why cleanup must happen in the
+  *same* `RUN` instruction that created the mess.
+</Callout>
+
+## 2. Containers — the running process
+
+A **container** is an image plus a thin writable layer plus a running process. If the image is a
+class, the container is an instance. One image, many containers.
+
+The lifecycle is smaller than people expect:
+
+```
+created ──start──> running ──stop──> stopped ──rm──> gone
+                      │                  │
+                      └─────start────────┘
+```
+
+A container **exits when its main process exits**. That is not a bug or a configuration option —
+it is the definition. A container running a web server stays up because the server does not
+return. A container running `ls` stops immediately because `ls` finishes.
+
+The writable layer is the crucial detail: **it is destroyed with the container.** Everything your
+application wrote — uploads, database files, logs — is gone when you `docker rm` it. Which brings
+us to the next concept.
+
+## 3. Volumes — where data actually lives
+
+A **volume** is storage that exists outside the container's lifecycle. Two kinds matter:
+
+**Named volumes** — Docker manages the storage, you refer to it by name:
+
+```bash
+docker volume create pgdata
+docker run -v pgdata:/var/lib/postgresql/data postgres:17
+```
+
+Use these for databases and anything the application owns. They survive `docker rm`, they perform
+well on every platform, and Docker handles the location.
+
+**Bind mounts** — you map a host directory into the container:
+
+```bash
+docker run -v "$PWD/src":/app/src node:22
+```
+
+Use these in development so your editor's changes appear inside the container instantly, without
+a rebuild. Avoid them in production: you have just made the container depend on the host's
+filesystem layout, which is the coupling you containerised to escape.
+
+<Callout type="note" title="Bind mounts are slow on macOS and Windows">
+  Because the container is inside a VM, every file read crosses a boundary. Mounting a large
+  `node_modules` through a bind mount is the single most common cause of "Docker is slow on my
+  Mac". The fix is to keep dependencies in a named volume or inside the image, and bind-mount only
+  your source.
+</Callout>
+
+## 4. Networks — how containers find each other
+
+Every container gets its own network namespace: its own interfaces, its own ports, its own
+`localhost`. That last part trips up everyone at least once.
+
+<Callout type="danger" title="localhost inside a container is the container">
+  If your app connects to `localhost:5432` for Postgres and Postgres is in another container, the
+  connection fails. `localhost` means *this container*, not the machine. The database is at a
+  different address entirely.
+</Callout>
+
+On a **user-defined bridge network**, Docker runs an embedded DNS server and containers resolve
+each other **by container name**:
+
+```bash
+docker network create appnet
+docker run -d --name db --network appnet postgres:17
+docker run -d --name api --network appnet myapi
+# inside `api`, the database is reachable at  db:5432
+```
+
+That is the entire mechanism, and it is why Compose "just works" — Compose creates a network and
+names each container after its service, so `postgres:5432` resolves from your app without you
+configuring anything.
+
+**Publishing ports** is separate. `-p 8080:80` maps port 8080 on the host to port 80 in the
+container. Without it, the container is reachable from other containers on its network but not
+from your browser.
+
+## How the four fit together
+
+```
+        docker build                docker run
+Dockerfile ──────────> Image ──────────────────> Container
+                         │                          │
+                         │                    ┌─────┴─────┐
+                    (read-only,               │           │
+                     shared layers)       Volume      Network
+                                       (survives)   (name-based DNS)
+```
+
+Every command you will meet operates on one of these. `docker images`, `docker ps`,
+`docker volume ls`, `docker network ls` — four nouns, the same verbs.
+
+<Callout type="tip">
+  When something in Docker confuses you later, ask which of the four it concerns. "Why is my data
+  gone?" is a volume question. "Why can't it connect?" is a network question. "Why is my build so
+  slow?" is a layer question. The answer is almost always in the concept, not in a flag.
+</Callout>
+
+Next: building a real image, one Dockerfile line at a time.

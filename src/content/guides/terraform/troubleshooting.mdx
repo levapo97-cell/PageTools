@@ -1,0 +1,232 @@
+---
+title: When Terraform is stuck
+description: >-
+  Locked state, resources that already exist, cycles in the graph, and plans that will not
+  converge. What each error actually means and the safe way out.
+order: 7
+pubDate: 2026-09-20
+tags: [terraform, troubleshooting, state, debugging]
+---
+
+import Callout from '@/components/Callout.astro';
+
+Terraform's errors are more informative than most, but several of them describe the symptom
+rather than the cause. Here are the ones you will meet.
+
+## Before anything: back up state
+
+```bash
+terraform state pull > backup-$(date +%s).tfstate
+```
+
+Do this before any recovery attempt. It costs a second and it is the difference between a bad
+afternoon and a very bad week.
+
+## `Error acquiring the state lock`
+
+```
+Error: Error acquiring the state lock
+Lock Info:
+  ID:        a1b2c3d4-...
+  Operation: OperationTypeApply
+  Who:       ana@laptop
+  Created:   2026-09-20 14:32:11
+```
+
+Someone is applying, or a previous run was killed before it could release the lock.
+
+**First, check whether it is genuinely stale.** Ask the person named. An apply interrupted
+mid-flight may have left real resources half-created, and force-unlocking while it is still
+running corrupts state.
+
+Once you are sure:
+
+```bash
+terraform force-unlock a1b2c3d4-...
+```
+
+<Callout type="danger" title="force-unlock is not a routine command">
+  Unlocking a lock held by a running apply lets a second apply start against the same state. That
+  is how state gets corrupted. Confirm the other process is dead first — every time.
+</Callout>
+
+## `Resource already exists`
+
+```
+Error: creating S3 Bucket: BucketAlreadyOwnedByYou
+```
+
+The resource exists in the cloud but not in state. Either someone created it by hand, or a
+previous apply created it and failed before writing state.
+
+Bring it under management instead of recreating it:
+
+```hcl
+import {
+  to = aws_s3_bucket.site
+  id = "my-existing-bucket"
+}
+```
+
+```bash
+terraform plan     # review what Terraform thinks needs changing
+terraform apply
+```
+
+Then delete the `import` block — it has done its job.
+
+## `Cycle: ...`
+
+```
+Error: Cycle: aws_security_group.app, aws_security_group.db
+```
+
+Two resources reference each other, so there is no valid order. Typically two security groups
+each allowing the other.
+
+Break it by extracting the rules into separate resources:
+
+```hcl
+resource "aws_security_group" "app" { name = "app" }
+resource "aws_security_group" "db"  { name = "db"  }
+
+resource "aws_security_group_rule" "app_to_db" {
+  type                     = "egress"
+  security_group_id        = aws_security_group.app.id
+  source_security_group_id = aws_security_group.db.id
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+}
+```
+
+The groups no longer reference each other; the rules reference the groups.
+
+## A plan that never comes back empty
+
+You apply, it succeeds, you plan again — and the same change is still there.
+
+Usually the provider is normalising a value differently from how you wrote it, or something
+outside Terraform rewrites the attribute on every change.
+
+```bash
+TF_LOG=DEBUG terraform plan 2> debug.log
+grep -A5 "aws_instance.app" debug.log
+```
+
+When the attribute is genuinely managed elsewhere, tell Terraform to stop caring:
+
+```hcl
+resource "aws_ecs_service" "app" {
+  lifecycle {
+    ignore_changes = [desired_count]    # the autoscaler owns this
+  }
+}
+```
+
+<Callout type="warning">
+  `ignore_changes` is correct for attributes genuinely owned by another system — autoscaling
+  counts, image tags set by a deploy pipeline. It is the wrong fix for a configuration mistake,
+  where it just hides the problem.
+</Callout>
+
+## `Provider produced inconsistent final plan`
+
+Almost always a provider bug, or a version mismatch between what produced the state and what is
+reading it.
+
+```bash
+terraform init -upgrade
+```
+
+If it persists, check the provider's GitHub issues for your resource type — these are usually
+known and often fixed in a patch release.
+
+## `Invalid for_each argument`
+
+```
+Error: Invalid for_each argument
+The "for_each" value depends on resource attributes that cannot be
+determined until apply.
+```
+
+`for_each` keys must be knowable at plan time. If they come from something that does not exist
+yet, Terraform cannot build the graph.
+
+```hcl
+# Fails: the bucket ids are not known until after creation
+resource "aws_s3_bucket_policy" "p" {
+  for_each = { for b in aws_s3_bucket.all : b.id => b }
+}
+
+# Works: the keys come from a variable, known up front
+resource "aws_s3_bucket_policy" "p" {
+  for_each = toset(var.bucket_names)
+}
+```
+
+Key on your **inputs**, never on the outputs of resources being created in the same run.
+
+## State and reality have diverged badly
+
+```bash
+terraform plan -refresh-only
+```
+
+This shows what changed outside Terraform without proposing any changes of your own. Accept
+reality into state with:
+
+```bash
+terraform apply -refresh-only
+```
+
+If a resource was deleted outside Terraform and you want Terraform to forget it:
+
+```bash
+terraform state rm aws_instance.gone
+```
+
+## Everything is slow
+
+```bash
+terraform plan -refresh=false      # skip refreshing every resource
+terraform plan -parallelism=30     # default is 10
+```
+
+If a plan takes several minutes, the real answer is in chapter six: the configuration is too
+large and wants splitting by blast radius.
+
+## Turning on logging
+
+```bash
+export TF_LOG=DEBUG          # TRACE, DEBUG, INFO, WARN, ERROR
+export TF_LOG_PATH=./tf.log
+terraform apply
+```
+
+`TF_LOG=DEBUG` shows the actual API calls and responses, which is how you tell a Terraform problem
+from a cloud-provider problem. It is verbose — always send it to a file.
+
+## The recovery checklist
+
+1. **Back up state** — `terraform state pull > backup.tfstate`
+2. **Read the error slowly** — Terraform usually names the resource and the attribute
+3. **`terraform state list`** — is the resource managed at all?
+4. **`terraform plan -refresh-only`** — what does reality look like?
+5. **`TF_LOG=DEBUG`** — when the message is not enough
+6. **Import rather than recreate** — if it exists, adopt it
+
+<Callout type="tip" title="The question to ask">
+  Nearly every Terraform problem is a disagreement between three things: your code, the state
+  file, and reality. Work out which pair disagrees before you start trying commands, and the right
+  command is usually obvious.
+</Callout>
+
+## You have finished the guide
+
+You can write Terraform that survives a second environment, you know which operations are
+destructive, and you can recover from a locked or diverged state.
+
+If your next step is running containers on the infrastructure you just declared, the
+[Kubernetes guide](/guides/kubernetes) picks up there — and the [Docker guide](/guides/docker)
+covers building the images it runs.

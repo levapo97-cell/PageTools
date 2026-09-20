@@ -1,0 +1,113 @@
+---
+import type { MarkdownHeading } from 'astro';
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '@/components/Breadcrumbs.astro';
+import DocsSidebar from '@/components/DocsSidebar.astro';
+import DocsPager from '@/components/DocsPager.astro';
+import TableOfContents from '@/components/TableOfContents.astro';
+import AdSlot from '@/components/AdSlot.astro';
+import Badge from '@/components/Badge.astro';
+import { formatDate, readingTime } from '@/lib/format';
+import { breadcrumbSchema, techArticleSchema } from '@/lib/schema';
+import { neighbours, pathOf, type Guide, type GuideSection } from '@/lib/content';
+
+interface Props {
+  guide: Guide;
+  section: GuideSection;
+  headings: MarkdownHeading[];
+}
+
+const { guide, section, headings } = Astro.props;
+const { tool } = guide;
+const { title, description, pubDate, updatedDate, author, tags, order } = section.data;
+
+const path = pathOf(section);
+const minutes = readingTime(section.body);
+const { prev, next } = neighbours(guide.sections, section);
+
+const crumbs = [
+  { href: '/', label: 'Home' },
+  { href: '/guides', label: 'Guides' },
+  { href: `/guides/${tool.slug}`, label: tool.name },
+  { label: title },
+];
+---
+
+<BaseLayout
+  title={`${title} — ${tool.name}`}
+  description={description}
+  type="article"
+  publishedDate={pubDate}
+  modifiedDate={updatedDate}
+  author={author}
+  keywords={[tool.name.toLowerCase(), ...tags]}
+  schema={[
+    techArticleSchema({
+      title,
+      description,
+      path,
+      author,
+      pubDate,
+      updatedDate,
+      section: tool.category,
+      keywords: tags,
+      toolName: tool.name,
+      difficulty: tool.difficulty,
+    }),
+    breadcrumbSchema(crumbs),
+  ]}
+>
+  <div class="container-page py-8 lg:py-12">
+    <div class="grid gap-10 lg:grid-cols-[15rem_minmax(0,1fr)] xl:grid-cols-[15rem_minmax(0,1fr)_14rem]">
+      <aside class="min-w-0 lg:row-span-2">
+        <details class="card-surface p-4 lg:hidden" name="docs-nav">
+          <summary class="cursor-pointer text-sm font-semibold text-ink">
+            {tool.name} guide — chapter {order} of {guide.sections.length}
+          </summary>
+          <div class="mt-4"><DocsSidebar guide={guide} current={path} /></div>
+        </details>
+        <div class="hidden lg:block"><DocsSidebar guide={guide} current={path} /></div>
+      </aside>
+
+      <article class="min-w-0">
+        <Breadcrumbs items={crumbs} />
+
+        <header class="mt-6 border-b border-border-subtle pb-7">
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge variant="brand">Chapter {order}</Badge>
+            <Badge variant="neutral">{tool.name} {tool.version}</Badge>
+          </div>
+          <h1
+            class="mt-4 text-3xl font-extrabold leading-tight tracking-tight text-balance text-ink sm:text-4xl"
+          >
+            {title}
+          </h1>
+          <p class="mt-4 text-lg leading-relaxed text-pretty text-ink-muted">{description}</p>
+          <div class="mt-5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+            <span>{minutes} min read</span>
+            <span aria-hidden="true">·</span>
+            <time datetime={(updatedDate ?? pubDate).toISOString()}>
+              {updatedDate ? `Updated ${formatDate(updatedDate)}` : formatDate(pubDate)}
+            </time>
+          </div>
+        </header>
+
+        <div class="xl:hidden"><TableOfContents headings={headings} /></div>
+
+        <div
+          class="prose prose-devtoolsdk mt-8 max-w-none prose-headings:font-bold prose-headings:tracking-tight prose-a:font-medium prose-a:underline-offset-2 prose-img:rounded-xl prose-code:before:content-none prose-code:after:content-none"
+        >
+          <slot />
+        </div>
+
+        <AdSlot slot="inArticle" format="fluid" layout="in-article" />
+
+        <DocsPager prev={prev} next={next} overviewHref={`/guides/${tool.slug}`} />
+      </article>
+
+      <aside class="hidden min-w-0 xl:block">
+        <TableOfContents headings={headings} />
+      </aside>
+    </div>
+  </div>
+</BaseLayout>

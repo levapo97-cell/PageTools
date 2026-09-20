@@ -1,49 +1,51 @@
 ---
 import BaseLayout from '@/layouts/BaseLayout.astro';
 import Hero from '@/components/Hero.astro';
-import ReviewCard from '@/components/ReviewCard.astro';
+import ToolCard from '@/components/ToolCard.astro';
 import ArticleCard from '@/components/ArticleCard.astro';
 import SectionHeading from '@/components/SectionHeading.astro';
 import CTAButton from '@/components/CTAButton.astro';
 import AdSlot from '@/components/AdSlot.astro';
 import Newsletter from '@/components/Newsletter.astro';
-import { getReviews, getArticles, getFeaturedReviews, categoriesOf } from '@/lib/content';
+import { getGuides, getArticles, pathOf } from '@/lib/content';
 import { SITE } from '@/consts';
 
-const reviews = await getReviews();
+const guides = await getGuides();
 const articles = await getArticles();
-const featured = await getFeaturedReviews(3);
-const latest = reviews.slice(0, 6);
-const categories = categoriesOf(reviews).slice(0, 8);
+const chapterCount = guides.reduce((sum, guide) => sum + guide.sections.length, 0);
 
 const pillars = [
   {
-    title: 'We run the tools, not the demos',
-    body: 'Every comparison starts with a real project migrated onto both options — the same app, the same team, the same deadline.',
+    title: 'The mental model comes first',
+    body: 'Chapter one is never installation. It is the problem the tool was built to solve, because everything else only makes sense once you have that.',
   },
   {
-    title: 'One rubric, every review',
-    body: 'Pricing, lock-in, developer experience, ecosystem and operational cost. Same weights each time, so scores are comparable.',
+    title: 'Every command is run before it is published',
+    body: 'Each guide states the exact version it was verified against. If a command in here fails for you, it is a bug and we want to hear about it.',
   },
   {
-    title: 'Nobody buys a ranking',
-    body: 'Affiliate links exist and are labelled. They have never moved a score, and vendors see the review when you do.',
+    title: 'The mistakes chapter is the point',
+    body: 'Official docs describe what the tool does. We wrote down what everybody gets wrong on the way there, which is where the time actually goes.',
   },
 ];
 ---
 
 <BaseLayout title={SITE.name} description={SITE.description}>
-  <Hero reviewCount={reviews.length} articleCount={articles.length} />
+  <Hero
+    guideCount={guides.length}
+    chapterCount={chapterCount}
+    articleCount={articles.length}
+  />
 
   <section class="container-page py-16 sm:py-20">
     <SectionHeading
-      eyebrow="Featured"
-      title="Start with these comparisons"
-      description="The decisions teams ask us about most — settled with numbers instead of vibes."
+      eyebrow="The guides"
+      title="Pick a tool and start at chapter one"
+      description="Each guide is a curriculum, not a reference. Read it in order once, then come back to the chapters you need."
     />
-    <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {featured.map((review) => (
-        <ReviewCard review={review} featured />
+    <div class="mt-8 grid gap-6 md:grid-cols-2">
+      {guides.map((guide) => (
+        <ToolCard guide={guide} />
       ))}
     </div>
   </section>
@@ -52,11 +54,7 @@ const pillars = [
 
   <section class="border-y border-border-subtle bg-surface-muted py-16 sm:py-20">
     <div class="container-page">
-      <SectionHeading
-        eyebrow="Why DevToolSDK"
-        title="Reviews you can actually act on"
-        align="center"
-      />
+      <SectionHeading eyebrow="How these differ" title="Why another set of tutorials" align="center" />
       <div class="mt-10 grid gap-6 md:grid-cols-3">
         {pillars.map((pillar, index) => (
           <div class="card-surface p-6">
@@ -74,43 +72,44 @@ const pillars = [
     </div>
   </section>
 
-  <section class="container-page py-16 sm:py-20">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <SectionHeading eyebrow="Latest" title="Fresh off the test bench" />
-      <CTAButton href="/reviews" variant="ghost" event="home_all_reviews">
-        View all {reviews.length} reviews →
-      </CTAButton>
-    </div>
-    <div class="mt-8 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-      {latest.map((review) => (
-        <ReviewCard review={review} />
-      ))}
-    </div>
-  </section>
-
-  {categories.length > 0 && (
-    <section class="container-page pb-4">
-      <h2 class="text-xs font-bold uppercase tracking-[0.18em] text-ink-muted">Browse by category</h2>
-      <ul class="mt-4 flex flex-wrap gap-2">
-        {categories.map((category) => (
-          <li>
-            <a
-              href={`/reviews#${category.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`}
-              class="inline-flex items-center gap-2 rounded-full border border-border-subtle bg-surface-raised px-3.5 py-1.5 text-sm text-ink-muted transition-colors hover:border-accent hover:text-accent"
-            >
-              {category.name}
-              <span class="text-xs text-ink-muted/70">{category.count}</span>
-            </a>
-          </li>
-        ))}
+  {guides.length > 0 && (
+    <section class="container-page py-16 sm:py-20">
+      <div class="flex flex-wrap items-end justify-between gap-4">
+        <SectionHeading eyebrow="Start here" title="If you only read one chapter" />
+        <CTAButton href="/guides" variant="ghost" event="home_all_guides">
+          All {guides.length} guides →
+        </CTAButton>
+      </div>
+      <ul class="mt-8 grid gap-4 sm:grid-cols-2">
+        {guides.map((guide) => {
+          const opener = guide.sections[0];
+          return opener ? (
+            <li>
+              <a
+                href={pathOf(opener)}
+                class="group card-surface flex h-full flex-col p-5 transition-all hover:-translate-y-0.5 hover:border-accent/40"
+              >
+                <span class="text-xs font-bold uppercase tracking-wider text-accent">
+                  {guide.tool.name}
+                </span>
+                <span class="mt-2 font-bold text-ink transition-colors group-hover:text-accent">
+                  {opener.data.title}
+                </span>
+                <span class="mt-1.5 text-sm leading-relaxed text-ink-muted">
+                  {opener.data.description}
+                </span>
+              </a>
+            </li>
+          ) : null;
+        })}
       </ul>
     </section>
   )}
 
   {articles.length > 0 && (
-    <section class="container-page py-16 sm:py-20">
+    <section class="container-page pb-16 sm:pb-20">
       <div class="flex flex-wrap items-end justify-between gap-4">
-        <SectionHeading eyebrow="From the blog" title="Guides and deep dives" />
+        <SectionHeading eyebrow="From the blog" title="Deep dives and field notes" />
         <CTAButton href="/articles" variant="ghost" event="home_all_articles">
           All articles →
         </CTAButton>
@@ -128,10 +127,10 @@ const pillars = [
       class="overflow-hidden rounded-[var(--radius-card)] bg-gradient-to-br from-brand-700 via-brand-600 to-brand-900 px-6 py-14 text-center sm:px-12"
     >
       <h2 class="text-2xl font-extrabold tracking-tight text-balance text-white sm:text-3xl">
-        One email a month. The comparison you were about to Google.
+        One email a month, when a new guide ships.
       </h2>
       <p class="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-brand-100">
-        Join the developers and platform leads who let us do the trial-and-error first.
+        No drip sequence, no upsell, no course. Just the guide.
       </p>
       <div class="mx-auto mt-8 flex max-w-md justify-center [&_label]:text-white [&_p]:text-brand-100">
         <Newsletter />

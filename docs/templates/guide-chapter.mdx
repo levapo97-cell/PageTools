@@ -1,0 +1,55 @@
+---
+title: The chapter title, as a reader would search for it
+description: >-
+  Between 50 and 300 characters. This is the search snippet, the card copy on the tool overview,
+  and the text in the HowTo structured data. Say what the reader gets out of the chapter.
+order: 1
+pubDate: 2026-01-01
+# updatedDate: 2026-02-01
+author: The DevToolSDK Team
+tags: [tool-name, topic, topic]
+# howto: true   # set on installation and walkthrough chapters
+draft: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+Open with the situation the reader is in. One or two short paragraphs — no "in this chapter we
+will", no throat clearing.
+
+## The first section
+
+Start at `##`; the `<h1>` comes from `title`. Only `##` and `###` appear in the table of
+contents.
+
+```bash
+# Always tag the language. Every command here must have been run before publishing.
+some --command
+```
+
+<Callout type="note">
+  Four types are available: `note`, `tip`, `warning` and `danger`. Use `danger` only for things
+  that destroy data or create a security hole — if everything is a danger, nothing is.
+</Callout>
+
+### A subsection
+
+Tables work and scroll horizontally on mobile with no extra markup:
+
+| Thing | Meaning |
+| ----- | ------- |
+| A | B |
+
+<Callout type="warning" title="Custom titles override the default label">
+  Without a `title`, the callout prints its type name. With one, it prints yours.
+</Callout>
+
+## Where this goes wrong
+
+The most valuable section of most chapters. What does everyone get wrong here, why does the tool
+let them, and what does the error actually mean?
+
+## Closing
+
+One line pointing at the next chapter. The pager below already links it, so keep this short —
+it is a handoff, not a summary.

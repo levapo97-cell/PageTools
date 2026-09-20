@@ -1,0 +1,236 @@
+---
+title: A full cycle, from init to merged pull request
+description: >-
+  Work through one complete feature the way it happens on a real team — branch, commit, rebase,
+  push, review, merge — with the graph state shown at each step.
+order: 4
+pubDate: 2026-09-20
+tags: [git, tutorial, workflow, github]
+howto: true
+---
+
+import Callout from '@/components/Callout.astro';
+
+Type this out. It is fifteen minutes and it covers the loop you will repeat for the rest of your
+career.
+
+## Start a repository
+
+```bash
+mkdir git-practice && cd git-practice
+git init
+```
+
+```bash
+echo "# Git practice" > README.md
+git status
+```
+
+`README.md` shows as **untracked** — Git can see it but is not managing it.
+
+```bash
+git add README.md
+git status
+```
+
+Now it is **staged**: in the index, ready for the next commit.
+
+```bash
+git commit -m "Add README"
+git log --oneline
+```
+
+One commit. Inspect it with the model from chapter one:
+
+```bash
+git cat-file -p HEAD
+```
+
+You will see the tree hash, the author, and **no parent line** — this is the root commit.
+
+## Make a few commits
+
+```bash
+mkdir src
+cat > src/app.js <<'EOF'
+export function greet(name) {
+  return `Hello, ${name}`;
+}
+EOF
+
+git add src/app.js
+git commit -m "Add greet function"
+
+cat > src/app.js <<'EOF'
+export function greet(name) {
+  if (!name) throw new Error('name is required');
+  return `Hello, ${name}`;
+}
+EOF
+
+git add src/app.js
+git commit -m "Validate the name argument"
+```
+
+```bash
+git log --oneline --graph
+```
+
+```
+* 3c4d5e6 Validate the name argument
+* 1a2b3c4 Add greet function
+* 9f8e7d6 Add README
+```
+
+## Branch for a feature
+
+```bash
+git switch -c feature/farewell
+```
+
+`switch -c` creates the branch and moves onto it. (`git checkout -b` does the same; `switch` is
+the newer, single-purpose command from chapter one's point about `checkout` being overloaded.)
+
+```bash
+cat >> src/app.js <<'EOF'
+
+export function farewell(name) {
+  return `Goodbye, ${name}`;
+}
+EOF
+
+git add src/app.js
+git commit -m "Add farewell function"
+
+# a second, messier commit
+echo "console.log('debug');" >> src/app.js
+git commit -am "wip"
+```
+
+<Callout type="note" title="git commit -am">
+  `-a` stages every **already-tracked** file that changed, skipping `git add`. It does **not**
+  stage new files. Convenient, and occasionally the reason a new file is missing from a commit.
+</Callout>
+
+## Simulate a colleague moving main
+
+```bash
+git switch main
+echo "node_modules" > .gitignore
+git add .gitignore
+git commit -m "Add gitignore"
+```
+
+The branches have now diverged:
+
+```bash
+git log --oneline --graph --all
+```
+
+```
+* 7a8b9c0 (main) Add gitignore
+| * 5e6f7a8 (feature/farewell) wip
+| * 4d5e6f7 Add farewell function
+|/
+* 3c4d5e6 Validate the name argument
+```
+
+## Clean up your branch before sharing it
+
+That `wip` commit and its debug line should not reach a reviewer.
+
+```bash
+git switch feature/farewell
+git rebase -i main
+```
+
+Your editor opens:
+
+```
+pick 4d5e6f7 Add farewell function
+pick 5e6f7a8 wip
+```
+
+Change the second line to `edit`, save and close. Git stops there:
+
+```bash
+# remove the debug line
+sed -i '' '/console.log/d' src/app.js     # macOS; use sed -i on Linux
+git add src/app.js
+git commit --amend --no-edit
+git rebase --continue
+```
+
+Now squash what remains into one clean commit:
+
+```bash
+git rebase -i main
+# change the second `pick` to `fixup`, save
+```
+
+```bash
+git log --oneline --graph --all
+```
+
+```
+* 2b3c4d5 (feature/farewell) Add farewell function
+* 7a8b9c0 (main) Add gitignore
+* 3c4d5e6 Validate the name argument
+```
+
+Linear, and one commit that says what it does.
+
+<Callout type="tip" title="The fixup shortcut">
+  When you spot a problem in a commit you made earlier on the same branch:
+
+  ```bash
+  git commit --fixup=<hash>
+  git rebase -i --autosquash main
+  ```
+
+  Git pre-arranges the todo list for you. This is the fastest way to keep a branch clean as you go
+  rather than in one painful pass at the end.
+</Callout>
+
+## Push and open a pull request
+
+```bash
+git remote add origin git@github.com:you/git-practice.git
+git push -u origin main
+git push -u origin feature/farewell
+```
+
+`-u` sets the upstream so later `git push` and `git pull` need no arguments. (The
+`push.autoSetupRemote` setting from chapter two does this automatically.)
+
+Open the PR on GitHub, get review, and merge it there.
+
+## Come back and sync
+
+```bash
+git switch main
+git pull                          # fetch + rebase, per your config
+git branch -d feature/farewell    # delete the local branch
+git fetch --prune                 # clean up origin/* refs that no longer exist
+```
+
+<Callout type="warning" title="-d versus -D">
+  `git branch -d` refuses to delete a branch whose commits are not merged anywhere — a safety
+  check. `-D` forces it. If `-d` complains, do not reach for `-D` reflexively: read what it says,
+  because it is usually telling you that you are about to lose work.
+</Callout>
+
+## The loop, condensed
+
+```bash
+git switch main && git pull
+git switch -c feature/thing
+# ... work, commit often ...
+git rebase -i main            # clean up
+git push -u origin feature/thing
+# ... review, merge ...
+git switch main && git pull
+git branch -d feature/thing
+```
+
+That is the cycle. Next: the commands that make up the daily grind.
